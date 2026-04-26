@@ -7,7 +7,9 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 from app.client import RuntimeConfig, create_client
+from app.errors import TransportError
 from app.local_server import LocalLlamaServer
+from app.runtime_log import RuntimeJsonLogger
 from app.session import SessionLogger
 from app.system_tools import get_system_snapshot
 
@@ -49,7 +51,7 @@ def _ollama_chat(client: RuntimeConfig, messages: list[dict[str, str]]):
     try:
         return urlopen(request, timeout=300)
     except Exception as error:
-        raise RuntimeError(f"Connection failed: {error}") from error
+        raise TransportError("E_TRANSPORT_CONNECT", "Connection failed", str(error)) from error
 
 
 def _llama_cpp_chat(client: RuntimeConfig, messages: list[dict[str, str]]):
@@ -72,7 +74,7 @@ def _llama_cpp_chat(client: RuntimeConfig, messages: list[dict[str, str]]):
     try:
         return urlopen(request, timeout=300)
     except Exception as error:
-        raise RuntimeError(f"Connection failed: {error}") from error
+        raise TransportError("E_TRANSPORT_CONNECT", "Connection failed", str(error)) from error
 
 
 def _format_hardware_context() -> str:
@@ -130,19 +132,39 @@ def _stream_reply(client: RuntimeConfig, messages: list[dict[str, str]]) -> str:
     return reply
 
 
+def _stage_input(messages: list[dict[str, str]], logger: SessionLogger, user_message: str) -> None:
+    messages.append({"role": "user", "content": user_message})
+    logger.append("user", user_message)
+
+
+def _stage_model_reply(client: RuntimeConfig, messages: list[dict[str, str]]) -> str:
+    return _stream_reply(client, messages)
+
+
+def _stage_commit_reply(messages: list[dict[str, str]], logger: SessionLogger, reply: str) -> None:
+    print()
+    messages.append({"role": "assistant", "content": reply})
+    logger.append("assistant", reply)
+
+
 def _run_turn(
     client: RuntimeConfig,
     messages: list[dict[str, str]],
     logger: SessionLogger,
+    runtime_logger: RuntimeJsonLogger,
     user_message: str,
 ) -> str:
-    """Run a single conversation turn."""
-    messages.append({"role": "user", "content": user_message})
-    logger.append("user", user_message)
-    reply = _stream_reply(client, messages)
-    print()
-    messages.append({"role": "assistant", "content": reply})
-    logger.append("assistant", reply)
+    """Run a single conversation turn through explicit pipeline stages."""
+    runtime_logger.event("stage_start", stage="input_normalization")
+    _stage_input(messages, logger, user_message)
+
+    runtime_logger.event("stage_start", stage="executor")
+    reply = _stage_model_reply(client, messages)
+
+    runtime_logger.event("stage_start", stage="memory_writer")
+    _stage_commit_reply(messages, logger, reply)
+
+    runtime_logger.event("turn_complete", chars=len(reply))
     return reply
 
 
@@ -150,10 +172,12 @@ def run_chat(initial_message: str | None = None) -> None:
     """Run the interactive chat loop with real-time streaming."""
     client = create_client()
     logger = SessionLogger(model=f"{client.backend}:{client.model}")
+    runtime_logger = RuntimeJsonLogger(session_id=logger.session_id)
     messages = build_history(_format_hardware_context())
     local_server = LocalLlamaServer(client)
 
     try:
+        runtime_logger.event("startup", backend=client.backend, model=client.model)
         local_server.ensure_started()
 
         print(f"--- SOVEREIGN SHARD ONLINE [{logger.session_id}] ---")
@@ -163,13 +187,14 @@ def run_chat(initial_message: str | None = None) -> None:
 
         if initial_message:
             print("\nJ.: ", end="", flush=True)
-            _run_turn(client, messages, logger, initial_message)
+            _run_turn(client, messages, logger, runtime_logger, initial_message)
             return
 
         while True:
             user_message = input("\nYou: ").strip()
             if user_message.lower() in {"quit", "exit"}:
                 print(f"Session saved to {logger.transcript_path}")
+                runtime_logger.event("shutdown", reason="user_exit")
                 break
             if not user_message:
                 continue
@@ -177,12 +202,14 @@ def run_chat(initial_message: str | None = None) -> None:
                 snapshot = dumps(get_system_snapshot(), indent=2)
                 print(snapshot)
                 logger.append("system", snapshot)
+                runtime_logger.event("snapshot", length=len(snapshot))
                 continue
             try:
                 print("\nJ.: ", end="", flush=True)
-                _run_turn(client, messages, logger, user_message)
-            except RuntimeError as error:
+                _run_turn(client, messages, logger, runtime_logger, user_message)
+            except TransportError as error:
                 print(f"\nJ. Error: {error}")
                 logger.append("error", str(error))
+                runtime_logger.event("error", code=error.code, message=error.message)
     finally:
         local_server.stop()
