@@ -218,6 +218,10 @@ Enables:
 ## Status
 
 **System State:** Stable
+
+## Architecture Roadmap
+
+- See `docs/AUTONOMOUS_AGENT_STACK_PLAN.md` for a USB-first stabilization and autonomy roadmap.
 **Architecture State:** Early modular agent runtime
 **Risk Level:** Medium (monolithic chat layer still present)
 
