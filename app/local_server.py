@@ -77,6 +77,8 @@ class LocalLlamaServer:
             "--jinja",
             "--chat-template-file",
             str(self.config.chat_template_file),
+            "--system-prompt",
+            self.config.system_prompt,
             "--reasoning-budget",
             str(self.config.reasoning_budget),
             "--reasoning-format",

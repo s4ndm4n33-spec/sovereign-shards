@@ -3,7 +3,7 @@
   "build_timestamp": "2026-04-24T15:00:33.6018063-05:00",
   "source_workspace": "C:\\Users\\music\\Documents\\New project",
   "local_resources_used": [
-    "C:\\Jarvis_Sovereign\\Models\\GGUF\\brain.gguf",
+    "C:\\Jarvis_Sovereign\\Models\\GGUF\\J.gguf",
     "C:\\Users\\music\\BLUE-J-SOVEREIGN\\bin\\llama-server.exe",
     "C:\\Users\\music\\BLUE-J-SOVEREIGN\\bin\\llama-cli.exe",
     "E:\\shard\\tools\\exec.py",
@@ -15,10 +15,10 @@
   ],
   "default_runtime": {
     "provider": "llama_cpp",
-    "model": "brain",
+    "model": "J",
     "server_binary": "E:\\dev shard\\model-server\\server.exe",
     "cli_binary": "E:\\dev shard\\model-server\\llama.exe",
-    "model_path": "E:\\dev shard\\models\\brain.gguf"
+    "model_path": "E:\\dev shard\\models\\J.gguf"
   },
   "standalone_ready_at": "2026-04-24T19:20:01.0890088-05:00",
   "model_hash_verified_at": "2026-04-24T19:44:16-05:00",

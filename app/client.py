@@ -14,7 +14,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 def _resolve_path(value: str, default: str) -> Path:
     """Resolve an env path relative to the shard root."""
-    raw = value or default
+    raw = (value or default).replace("\\", "/")
     path = Path(raw)
     if not path.is_absolute():
         path = BASE_DIR / path
@@ -48,6 +48,7 @@ class RuntimeConfig:
     reasoning_budget: int
     reasoning_format: str
     stop_tokens: tuple[str, ...]
+    system_prompt: str
 
     @property
     def base_url(self) -> str:
@@ -62,10 +63,10 @@ def create_client() -> RuntimeConfig:
     backend = os.getenv("RUNTIME_BACKEND", "llama_cpp").strip().lower()
     host = os.getenv("LLAMA_HOST", "127.0.0.1").strip()
     port = int(os.getenv("LLAMA_PORT", "8080"))
-    model = os.getenv("LLAMA_MODEL_ALIAS", os.getenv("OLLAMA_MODEL", "brain")).strip()
+    model = os.getenv("LLAMA_MODEL_ALIAS", os.getenv("OLLAMA_MODEL", "J")).strip()
     num_predict = int(os.getenv("OLLAMA_NUM_PREDICT", "256"))
-    num_ctx = int(os.getenv("OLLAMA_NUM_CTX", "1024"))
-    num_thread = int(os.getenv("OLLAMA_NUM_THREAD", "2"))
+    num_ctx = int(os.getenv("OLLAMA_NUM_CTX", "2048"))
+    num_thread = int(os.getenv("OLLAMA_NUM_THREAD", "4"))
     temperature = float(os.getenv("OLLAMA_TEMPERATURE", "0.1"))
     top_p = float(os.getenv("LLAMA_TOP_P", "0.85"))
     top_k = int(os.getenv("LLAMA_TOP_K", "20"))
@@ -73,10 +74,10 @@ def create_client() -> RuntimeConfig:
     keep_alive = os.getenv("OLLAMA_KEEP_ALIVE", "5m")
     require_gpu = os.getenv("REQUIRE_GPU", "false").lower() == "true"
     startup_timeout = int(os.getenv("LLAMA_STARTUP_TIMEOUT", "120"))
-    chat_template = os.getenv("LLAMA_CHAT_TEMPLATE", "brain").strip()
+    chat_template = os.getenv("LLAMA_CHAT_TEMPLATE", "J").strip()
     chat_template_file = _resolve_path(
         os.getenv("LLAMA_CHAT_TEMPLATE_FILE", ""),
-        "prompts\\brain-chat-template.jinja",
+        "prompts\\J-chat-template.jinja",
     )
     chat_template_kwargs = os.getenv(
         "LLAMA_CHAT_TEMPLATE_KWARGS",
@@ -84,6 +85,11 @@ def create_client() -> RuntimeConfig:
     ).strip()
     reasoning_budget = int(os.getenv("LLAMA_REASONING_BUDGET", "0"))
     reasoning_format = os.getenv("LLAMA_REASONING_FORMAT", "none").strip()
+    system_prompt = os.getenv(
+        "LLAMA_SYSTEM_PROMPT",
+        "You are J. The logical extension of the Haysville Blueprint. You operate under the Five Masters protocol.",
+    ).strip()
+
     stop_tokens = tuple(
         token.strip()
         for token in os.getenv(
@@ -95,7 +101,7 @@ def create_client() -> RuntimeConfig:
 
     model_path = _resolve_path(
         os.getenv("LLAMA_MODEL_PATH", ""),
-        "models\\brain.gguf",
+        "models\\J.gguf",
     )
     server_binary = _resolve_path(
         os.getenv("LLAMA_SERVER_BINARY", ""),
@@ -130,4 +136,5 @@ def create_client() -> RuntimeConfig:
         reasoning_budget=reasoning_budget,
         reasoning_format=reasoning_format,
         stop_tokens=stop_tokens,
+        system_prompt=system_prompt,
     )
