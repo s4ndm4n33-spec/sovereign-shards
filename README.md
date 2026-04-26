@@ -1,78 +1,227 @@
-# Sovereign Shards
+# Sovereign Shards — J Runtime (v1.1)
 
-Windows-first local developer shard for J., built to run as a standalone folder
-from `E:\dev shard`.
+## Overview
 
-Build timestamp: `2026-04-24T15:00:33.6018063-05:00`
-Standalone runtime timestamp: `2026-04-24T19:20:01.0890088-05:00`
+Sovereign Shards is a local-first AI runtime designed around a modular agent architecture called **J**. It runs a local LLM backend (llama.cpp or Ollama-compatible servers) and layers it with structured orchestration, identity prompting, system introspection, and a governance evaluation system called the **Five Masters**.
 
-## What This Build Includes
+This system is not just a chatbot. It is an evolving agent runtime with explicit separation between:
 
-- shard-local `python.exe`
-- shard-local `llama.exe` and `server.exe`
-- local `brain.gguf` model path inside `models/`
-- automatic `llama.cpp` server boot from Python
-- automatic hardware identity injection on boot
-- timestamped session transcripts under `logs/sessions/`
-- one-shot mode for quick validation
-- local tool scripts under `tools/run/`
+- Identity (prompt system)
+- Orchestration (chat loop)
+- Runtime execution (local server)
+- System introspection (hardware + snapshot tools)
+- Governance evaluation (Five Masters)
 
-## Setup
+---
 
-Install the Python dependencies:
+## Core Philosophy
 
-```powershell
-py -m pip install -r requirements.txt
+This system is built on five evaluation principles:
+
+1. Efficiency (Korotkevich) — minimal computational waste
+2. Rigor (Torvalds) — no silent failure states
+3. Optimization (Carmack) — respect hardware constraints
+4. Reliability (Hamilton) — assume failure is default state
+5. Fundamentals (Ritchie) — understand mechanisms, not abstractions
+
+These principles are enforced via the **Five Masters layer** during runtime evaluation and future code interception pipelines.
+
+---
+
+## Current Capabilities (v1.1)
+
+- Local LLM execution via llama.cpp server
+- Streaming chat interface (real-time token output)
+- Persistent session logging
+- System hardware introspection
+- Prompt-driven identity system (J-system.txt)
+- Runtime configuration via .env
+- Local server lifecycle management
+- Snapshot system for system state capture
+- Five Masters evaluation layer (initial implementation)
+- Sandbox toggle (Bruce Wayne trigger)
+
+---
+
+## Architecture
+
+### High-Level Flow
+
+```
+User Input
+    ↓
+Chat Orchestrator (app/chat.py)
+    ↓
+Prompt Injection (J Identity + Context)
+    ↓
+Local Runtime Server (llama.cpp)
+    ↓
+Streaming Response
+    ↓
+Five Masters Evaluation Hook
+    ↓
+Session Logging
+    ↓
+User Output
 ```
 
-The default runtime is now local `llama.cpp` from inside this shard.
+---
 
-```env
-RUNTIME_BACKEND=llama_cpp
-LLAMA_HOST=127.0.0.1
-LLAMA_PORT=8080
-LLAMA_MODEL_ALIAS=brain
-LLAMA_MODEL_PATH=models\brain.gguf
-LLAMA_SERVER_BINARY=model-server\server.exe
-LLAMA_CLI_BINARY=model-server\llama.exe
-LLAMA_STARTUP_TIMEOUT=120
-OLLAMA_NUM_PREDICT=256
-OLLAMA_NUM_CTX=1024
-OLLAMA_NUM_THREAD=2
-OLLAMA_TEMPERATURE=0.2
-REQUIRE_GPU=false
+## File Tree (Current State)
+
+```
+E:\dev shard\
+│
+├── app/                          # ORCHESTRATION LAYER (Nervous System)
+│   ├── __init__.py              # Tool exports + initialization
+│   ├── chat.py                  # Main runtime chat loop (streaming + sandbox + evaluation hooks)
+│   ├── chat(2).py               # Alternate Ollama-compatible loop
+│   ├── client.py                # Runtime config loader (.env → RuntimeConfig)
+│   ├── local_server.py          # llama.cpp process manager (server lifecycle)
+│   ├── session.py               # Session logging + transcript persistence
+│   ├── system_tools.py          # Hardware introspection (CPU/RAM/Disk snapshot)
+│   ├── file_tools.py            # File I/O primitives
+│   └── __pycache__/             # Python cache
+│
+├── core/                         # GOVERNANCE LAYER (Frontal Lobe)
+│   └── fivemasters.py           # Code evaluation system (Five Masters scoring)
+│
+├── prompts/                      # IDENTITY LAYER
+│   ├── J-system.txt             # Core J identity + behavior rules
+│   ├── J-chat-template.jinja    # Formatting template
+│   ├── developer.txt            # Dev constraints / coding rules
+│   └── system.txt               # Base system prompt
+│
+├── logs/                         # MEMORY LAYER
+│   ├── server/                  # Raw backend logs (llama.cpp output)
+│   └── sessions/               # Chat transcripts
+│
+├── models/                       # WEIGHT STORAGE
+│   └── J.gguf                   # Local model weights (~2.3GB)
+│
+├── model-server/                 # EXECUTION ENGINE
+│   ├── server.exe               # llama.cpp HTTP server
+│   └── llama.exe                # CLI interface
+│
+├── run.py                       # Entry point (CLI bootstrap)
+├── snapshot.py                  # System state capture tool
+├── start-server.bat             # Server launcher script
+├── run-llama.bat                # Alternative runtime launcher
+├── run-shard.bat                # Shard bootstrap script
+├── modelfile                    # Model configuration descriptor
+├── requirements.txt            # Python dependencies
+├── .env                        # Runtime configuration (local only)
+├── .env.example                # Template config
+├── .gitignore                  # Ignore rules
+├── BUILD_INFO.json             # Build metadata
+├── ProjectManifest.txt         # Project registry
+└── LICENSE.txt                 # Licensing
 ```
 
-## Run
+---
 
-Interactive mode:
+## Key Systems Explained
 
-```powershell
-.\python.exe run.py
+### 1. Chat Orchestrator (app/chat.py)
+
+Responsible for:
+- Maintaining conversation state
+- Injecting system identity
+- Streaming LLM output
+- Handling runtime commands (/snapshot, exit)
+- Triggering sandbox mode
+- Calling Five Masters evaluation hooks
+
+---
+
+### 2. Local Server Manager (app/local_server.py)
+
+Handles:
+- Launching llama.cpp server subprocess
+- Health checking via HTTP endpoint
+- Startup timeout control
+- Graceful shutdown
+- Log capture
+
+---
+
+### 3. Five Masters (core/fivemasters.py)
+
+Evaluates code or structured output against:
+- Efficiency
+- Correctness
+- Hardware awareness
+- Failure handling
+- Mechanism understanding
+
+Used as a runtime gate for future execution filtering.
+
+---
+
+### 4. Identity System (prompts/J-system.txt)
+
+Defines:
+- Personality of J
+- Behavioral constraints
+- Tone (precise, British, sardonic)
+- Role (assistant + system builder)
+- Safety boundaries
+
+---
+
+### 5. Snapshot System (snapshot.py)
+
+Captures:
+- System state
+- Runtime health
+- Environment context
+
+Used for debugging and reproducibility.
+
+---
+
+## Sandbox Mode
+
+Activated via:
+
+```
+bruce wayne
 ```
 
-One-shot mode:
+Enables:
+- Flagged runtime state
+- Experimental behavior routing
+- Future isolated execution layer
 
-```powershell
-.\python.exe run.py --message "Report system status."
-```
+---
 
-Show the exact local runtime paths:
+## Current Limitations
 
-```powershell
-.\python.exe run.py --paths
-```
+- No formal memory graph
+- No structured tool registry system
+- Five Masters is heuristic (not AST-enforced yet)
+- chat.py is still monolithic
+- No plugin architecture yet
 
-Start the local server manually:
+---
 
-```powershell
-.\start-server.bat
-```
+## Next Milestone (v1.2 Target)
 
-Run the local CLI manually:
+- Split orchestration into pipeline stages
+- Formalize evaluator as AST-based system
+- Introduce tool registry layer
+- Separate memory from session logs
+- Introduce deterministic routing layer
 
-```powershell
-.\run-llama.bat
-```
+---
 
-Each session writes a timestamped transcript and metadata file into `logs/sessions/`.
+## Status
+
+**System State:** Stable
+**Architecture State:** Early modular agent runtime
+**Risk Level:** Medium (monolithic chat layer still present)
+
+---
+
+End of document.
+
