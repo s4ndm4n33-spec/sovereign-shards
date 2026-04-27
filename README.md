@@ -39,6 +39,7 @@ These principles are enforced via the **Five Masters layer** during runtime eval
 - Local server lifecycle management
 - Snapshot system for system state capture
 - Five Masters evaluation layer (initial implementation)
+- Agent layer scaffolding (contracts + tool registry bootstrap)
 - Sandbox toggle (Bruce Wayne trigger)
 
 ---
@@ -73,14 +74,13 @@ User Output
 E:\dev shard\
 │
 ├── app/                          # ORCHESTRATION LAYER (Nervous System)
+│   ├── agent/                   # Agent runtime scaffolding (planner/executor contracts + tool registry)
 │   ├── __init__.py              # Tool exports + initialization
 │   ├── chat.py                  # Main runtime chat loop (streaming + sandbox + evaluation hooks)
-│   ├── chat(2).py               # Alternate Ollama-compatible loop
 │   ├── client.py                # Runtime config loader (.env → RuntimeConfig)
 │   ├── local_server.py          # llama.cpp process manager (server lifecycle)
 │   ├── session.py               # Session logging + transcript persistence
 │   ├── system_tools.py          # Hardware introspection (CPU/RAM/Disk snapshot)
-│   ├── file_tools.py            # File I/O primitives
 │   └── __pycache__/             # Python cache
 │
 ├── core/                         # GOVERNANCE LAYER (Frontal Lobe)
@@ -198,7 +198,7 @@ Enables:
 ## Current Limitations
 
 - No formal memory graph
-- No structured tool registry system
+- Tool registry is scaffolded but not yet wired to execution policy gates
 - Five Masters is heuristic (not AST-enforced yet)
 - chat.py is still monolithic
 - No plugin architecture yet
