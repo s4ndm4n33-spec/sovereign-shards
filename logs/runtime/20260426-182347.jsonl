@@ -1,0 +1,19 @@
+{"timestamp": "2026-04-26T18:23:48.825020-05:00", "event": "startup", "backend": "llama_cpp", "model": "J"}
+{"timestamp": "2026-04-26T18:24:05.713123-05:00", "event": "stage_start", "stage": "input_normalization"}
+{"timestamp": "2026-04-26T18:24:05.858084-05:00", "event": "stage_start", "stage": "executor"}
+{"timestamp": "2026-04-26T18:24:56.971890-05:00", "event": "stage_start", "stage": "memory_writer"}
+{"timestamp": "2026-04-26T18:24:57.028522-05:00", "event": "turn_complete", "chars": 1148}
+{"timestamp": "2026-04-26T19:17:15.300713-05:00", "event": "stage_start", "stage": "input_normalization"}
+{"timestamp": "2026-04-26T19:17:15.441835-05:00", "event": "stage_start", "stage": "executor"}
+{"timestamp": "2026-04-26T19:18:22.027244-05:00", "event": "stage_start", "stage": "memory_writer"}
+{"timestamp": "2026-04-26T19:18:22.123743-05:00", "event": "turn_complete", "chars": 1053}
+{"timestamp": "2026-04-26T19:28:15.885275-05:00", "event": "stage_start", "stage": "input_normalization"}
+{"timestamp": "2026-04-26T19:28:16.031431-05:00", "event": "stage_start", "stage": "executor"}
+{"timestamp": "2026-04-26T19:29:24.850292-05:00", "event": "stage_start", "stage": "memory_writer"}
+{"timestamp": "2026-04-26T19:29:24.906853-05:00", "event": "turn_complete", "chars": 997}
+{"timestamp": "2026-04-26T19:42:55.069008-05:00", "event": "stage_start", "stage": "input_normalization"}
+{"timestamp": "2026-04-26T19:42:55.212294-05:00", "event": "stage_start", "stage": "executor"}
+{"timestamp": "2026-04-26T19:44:16.472218-05:00", "event": "stage_start", "stage": "memory_writer"}
+{"timestamp": "2026-04-26T19:44:16.612442-05:00", "event": "turn_complete", "chars": 880}
+{"timestamp": "2026-04-26T19:58:57.629448-05:00", "event": "stage_start", "stage": "input_normalization"}
+{"timestamp": "2026-04-26T19:58:57.776136-05:00", "event": "stage_start", "stage": "executor"}

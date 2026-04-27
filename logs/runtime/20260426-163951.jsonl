@@ -1,0 +1,5 @@
+{"timestamp": "2026-04-26T16:39:55.414469-05:00", "event": "startup", "backend": "llama_cpp", "model": "J"}
+{"timestamp": "2026-04-26T16:40:02.497098-05:00", "event": "stage_start", "stage": "input_normalization"}
+{"timestamp": "2026-04-26T16:40:04.241707-05:00", "event": "stage_start", "stage": "executor"}
+{"timestamp": "2026-04-26T16:40:07.253232-05:00", "event": "stage_start", "stage": "memory_writer"}
+{"timestamp": "2026-04-26T16:40:07.331336-05:00", "event": "turn_complete", "chars": 122}

@@ -1,0 +1,9 @@
+{"timestamp": "2026-04-26T04:20:54.947909-05:00", "event": "startup", "backend": "llama_cpp", "model": "J"}
+{"timestamp": "2026-04-26T04:20:59.801605-05:00", "event": "stage_start", "stage": "input_normalization"}
+{"timestamp": "2026-04-26T04:21:02.341184-05:00", "event": "stage_start", "stage": "executor"}
+{"timestamp": "2026-04-26T04:21:04.177063-05:00", "event": "stage_start", "stage": "memory_writer"}
+{"timestamp": "2026-04-26T04:21:04.263831-05:00", "event": "turn_complete", "chars": 58}
+{"timestamp": "2026-04-26T04:21:08.281437-05:00", "event": "stage_start", "stage": "input_normalization"}
+{"timestamp": "2026-04-26T04:21:08.372958-05:00", "event": "stage_start", "stage": "executor"}
+{"timestamp": "2026-04-26T04:21:10.182488-05:00", "event": "stage_start", "stage": "memory_writer"}
+{"timestamp": "2026-04-26T04:21:10.268258-05:00", "event": "turn_complete", "chars": 58}

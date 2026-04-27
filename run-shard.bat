@@ -1,3 +1,4 @@
+```bat id="0m72md"
 @echo off
 setlocal
 cd /d "%~dp0"
@@ -5,8 +6,8 @@ cd /d "%~dp0"
 set "STAMP=%date% %time%"
 echo [%STAMP%] Starting Sovereign Shard
 
-if not exist "%~dp0python.exe" (
-  echo [ERROR] Missing runtime: "%~dp0python.exe"
+if not exist "%~dp0python\python.exe" (
+  echo [ERROR] Missing embedded Python runtime: "%~dp0python\python.exe"
   set "EXITCODE=1"
   goto :end
 )
@@ -17,7 +18,7 @@ if not exist "%~dp0run.py" (
   goto :end
 )
 
-"%~dp0python.exe" run.py %*
+"%~dp0python\python.exe" run.py %*
 set "EXITCODE=%ERRORLEVEL%"
 
 if not "%EXITCODE%"=="0" (
@@ -28,7 +29,9 @@ if not "%EXITCODE%"=="0" (
 
 :end
 if not defined EXITCODE set "EXITCODE=0"
+
 echo.
 echo Press any key to close this window...
 pause >nul
 exit /b %EXITCODE%
+```
