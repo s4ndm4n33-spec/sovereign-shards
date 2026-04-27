@@ -30,3 +30,5 @@ vcruntime140.dll
 vcruntime140_1.dll
 LICENSE.txt
 tinyllama.gguf
+
+logs/runtime/
