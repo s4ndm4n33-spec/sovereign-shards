@@ -1,19 +1,24 @@
+import argparse
 import subprocess
 import sys
 
+def main():
+    # The 'nargs=argparse.REMAINDER' tells Python: 
+    # 'Everything after this flag belongs to this flag.'
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--command', nargs=argparse.REMAINDER, required=True)
+    args = parser.parse_args()
+    
+    # Rejoin the list of words into a single string
+    full_command = ' '.join(args.command)
+    
+    try:
+        result = subprocess.run(full_command, shell=True, capture_output=True, text=True)
+        print(result.stdout)
+        if result.stderr:
+            print(result.stderr, file=sys.stderr)
+    except Exception as e:
+        print(f'Error: {e}')
 
-code = sys.stdin.read()
-
-try:
-    result = subprocess.run(
-        [sys.executable, "-c", code],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.stdout:
-        print(result.stdout, end="")
-    if result.stderr:
-        print(result.stderr, end="")
-except Exception as error:
-    print(f"[EXEC ERROR] {error}")
+if __name__ == '__main__':
+    main()

@@ -1,26 +1,8 @@
 {
-  "project": "Sovereign Shards",
-  "build_timestamp": "2026-04-24T15:00:33.6018063-05:00",
-  "source_workspace": "C:\\Users\\music\\Documents\\New project",
-  "local_resources_used": [
-    "C:\\Jarvis_Sovereign\\Models\\GGUF\\J.gguf",
-    "C:\\Users\\music\\BLUE-J-SOVEREIGN\\bin\\llama-server.exe",
-    "C:\\Users\\music\\BLUE-J-SOVEREIGN\\bin\\llama-cli.exe",
-    "E:\\shard\\tools\\exec.py",
-    "E:\\shard\\tools\\read.py",
-    "E:\\shard\\tools\\write.py",
-    "E:\\shard\\tools\\scaffold.py",
-    "prompts\\system.txt",
-    "prompts\\developer.txt"
-  ],
-  "default_runtime": {
-    "provider": "llama_cpp",
-    "model": "J",
-    "server_binary": "E:\\dev shard\\model-server\\server.exe",
-    "cli_binary": "E:\\dev shard\\model-server\\llama.exe",
-    "model_path": "E:\\dev shard\\models\\J.gguf"
-  },
-  "standalone_ready_at": "2026-04-24T19:20:01.0890088-05:00",
-  "model_hash_verified_at": "2026-04-24T19:44:16-05:00",
-  "standalone_runtime_verified_at": "2026-04-24T19:45:34-05:00"
+  "version": "1.3.1",
+  "codename": "Agnostic-Ritchie",
+  "runtime": {
+    "server_binary": "model-server/server.exe",
+    "model_path": "models/J.gguf"
+  }
 }

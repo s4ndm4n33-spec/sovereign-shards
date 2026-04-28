@@ -1,10 +1,14 @@
+import argparse
 import os
-import sys
+from pathlib import Path
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--path", required=True)
+args = parser.parse_args()
 
-path = sys.argv[1]
-if os.path.exists(path):
-    with open(path, encoding="utf-8") as handle:
-        print(handle.read())
+target = Path(args.path)
+if target.exists():
+    with open(target, "r", encoding="utf-8") as f:
+        print(f.read())
 else:
-    print(f"[READ ERROR] File not found: {path}")
+    print(f"[READ ERROR] Not found: {target}")

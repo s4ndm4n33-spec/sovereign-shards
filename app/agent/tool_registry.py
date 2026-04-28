@@ -1,43 +1,38 @@
-"""Schema-validated tool registry scaffolding for the agent runtime."""
-
-from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import Any
-
-
-@dataclass(frozen=True)
-class ToolSpec:
-    """Static metadata for one callable tool."""
-
-    name: str
-    schema: dict[str, Any]
-    side_effect: str
-    timeout_seconds: int = 30
-    retries: int = 0
-
+import os
+import subprocess
+from pathlib import Path
+from typing import Tuple
+from app.agent.contracts import ToolCall
 
 class ToolRegistry:
-    """Minimal registry that validates required argument presence."""
+    def __init__(self):
+        self.root = Path(__file__).resolve().parent.parent.parent
+        self.tools_dir = self.root / "tools" / "run"
+        self._refresh_tools()
 
-    def __init__(self) -> None:
-        self._tools: dict[str, ToolSpec] = {}
+    def _refresh_tools(self):
+        """Map all .py files in tools/run to the registry."""
+        self.tools = {}
+        if self.tools_dir.exists():
+            for f in self.tools_dir.glob("*.py"):
+                self.tools[f.stem] = f
 
-    def register(self, spec: ToolSpec) -> None:
-        if spec.name in self._tools:
-            raise ValueError(f"tool already registered: {spec.name}")
-        self._tools[spec.name] = spec
-
-    def get(self, name: str) -> ToolSpec:
-        if name not in self._tools:
-            raise KeyError(f"unknown tool: {name}")
-        return self._tools[name]
-
-    def validate(self, name: str, args: dict[str, Any]) -> list[str]:
-        spec = self.get(name)
-        required = spec.schema.get("required", [])
-        missing = [key for key in required if key not in args]
-        return [f"missing required field: {key}" for key in missing]
-
-    def names(self) -> list[str]:
-        return sorted(self._tools)
+    def call_tool(self, tool_call: ToolCall) -> Tuple[bool, str]:
+        self._refresh_tools() # Ensure new tools are picked up
+        if tool_call.name not in self.tools:
+            return False, f"Tool '{tool_call.name}' not in registry."
+        
+        tool_path = self.tools[tool_call.name]
+        # Format arguments for the command line
+        arg_str = " ".join([f"--{k}=\"{v}\"" for k, v in tool_call.args.items()])
+        
+        import sys
+        cmd = f'"{sys.executable}" "{tool_path}" {arg_str}'
+        
+        try:
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+            success = (result.returncode == 0)
+            output = result.stdout if success else result.stderr
+            return success, output
+        except Exception as e:
+            return False, str(e)

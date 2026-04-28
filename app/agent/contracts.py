@@ -1,47 +1,27 @@
-"""Core contracts for the upcoming planner/executor agent layer."""
+from dataclasses import dataclass
+from typing import List, Optional, Dict, Any
 
-from __future__ import annotations
-
-from dataclasses import dataclass, field
-from typing import Any, Literal
-
-
-AutonomyMode = Literal["manual", "semi", "auto-safe", "auto-full"]
-
-
-@dataclass(frozen=True)
-class AgentStep:
-    """One planned step with a deterministic success signal."""
-
-    id: str
-    goal: str
-    success_criteria: str
-
-
-@dataclass(frozen=True)
+@dataclass
 class ToolCall:
-    """Validated tool invocation emitted by planner/executor stages."""
-
     name: str
-    args: dict[str, Any] = field(default_factory=dict)
+    args: Dict[str, Any]
 
-
-@dataclass(frozen=True)
+@dataclass
 class ToolResult:
-    """Standardized outcome for tool invocations."""
-
-    name: str
-    ok: bool
+    call_id: str
+    success: bool
     output: str
-    error: str = ""
 
+@dataclass
+class AgentStep:
+    step_id: str
+    tool: str
+    args: Dict[str, Any]
 
 @dataclass
 class AgentTask:
-    """Checkpointable task state for planner/executor/verifier flows."""
-
-    objective: str
-    mode: AutonomyMode = "manual"
-    steps: list[AgentStep] = field(default_factory=list)
-    completed_step_ids: list[str] = field(default_factory=list)
-    artifacts: list[str] = field(default_factory=list)
+    task_id: str
+    goal: str
+    steps: List[Dict[str, Any]]
+    status: str = "pending"
+    checkpoint_file: Optional[str] = None

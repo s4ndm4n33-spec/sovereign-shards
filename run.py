@@ -1,48 +1,23 @@
-"""Start the Sovereign Shard chat loop."""
-
-from __future__ import annotations
-
+import sys
 import argparse
-from pathlib import Path
-
-from app.chat import run_chat
-from app.client import create_client
 from app.doctor import run_doctor
 
+def main():
+    parser = argparse.ArgumentParser(description="Sovereign Shard Runtime")
+    parser.add_argument("--doctor", action="store_true", help="Run preflight diagnostics")
+    args, unknown = parser.parse_known_args()
 
-BASE_DIR = Path(__file__).resolve().parent
-
-
-def main() -> None:
-    """Run the shard in interactive or one-shot mode."""
-    parser = argparse.ArgumentParser(description="Run the Sovereign Shard.")
-    parser.add_argument(
-        "--message",
-        help="Send a single prompt and exit.",
-    )
-    parser.add_argument(
-        "--paths",
-        action="store_true",
-        help="Print the shard-local runtime paths and exit.",
-    )
-    parser.add_argument(
-        "--doctor",
-        action="store_true",
-        help="Run startup preflight diagnostics and exit.",
-    )
-    args = parser.parse_args()
-    if args.paths:
-        config = create_client()
-        print(f"Shard: {BASE_DIR}")
-        print(f"Python: {BASE_DIR / 'python.exe'}")
-        print(f"Server: {config.server_binary}")
-        print(f"CLI: {config.cli_binary}")
-        print(f"Model: {config.model_path}")
-        return
     if args.doctor:
-        raise SystemExit(run_doctor())
-    run_chat(initial_message=args.message)
+        sys.exit(run_doctor())
 
+    # This is the critical transition from "Placeholder" to "Active Loop"
+    try:
+        from app.chat import run_chat
+        run_chat()
+    except ImportError as e:
+        print(f"[FATAL]: Could not find run_chat in app.chat. {e}")
+    except KeyboardInterrupt:
+        print("\n[SYSTEM]: Manual shutdown initiated.")
 
 if __name__ == "__main__":
     main()

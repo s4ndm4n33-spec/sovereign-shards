@@ -17,7 +17,7 @@ if not exist "%~dp0models\J.gguf" (
   goto :end
 )
 
-"%~dp0model-server\llama.exe" --model "%~dp0models\J.gguf" --device none --ctx-size 4096 --threads 4 --temp 0.1 --top-p 0.85 --top-k 20 --min-p 0 --chat-template-file "%~dp0prompts\J-chat-template.jinja" --reasoning-budget 0 --reasoning-format none --simple-io %*
+"%~dp0model-server\llama.exe" --model "%~dp0models\J.gguf" --device none --ctx-size 4096 --threads 8 --cache-type-k q8_0 --temp 0.1 --top-p 0.85 --top-k 20 --min-p 0 --chat-template-file "%~dp0prompts\J-chat-template.jinja" --reasoning-budget 0 --reasoning-format none --simple-io %*
 set "EXITCODE=%ERRORLEVEL%"
 
 if not "%EXITCODE%"=="0" (

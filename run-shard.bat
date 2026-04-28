@@ -1,4 +1,3 @@
-```bat id="0m72md"
 @echo off
 setlocal
 cd /d "%~dp0"
