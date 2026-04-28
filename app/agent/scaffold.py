@@ -1,62 +1,38 @@
-"""Bootstrap helpers for wiring the next agent layer iteration."""
-
 from __future__ import annotations
+import os
+from pathlib import Path
+from .contracts import ToolCall, ToolResult
 
-from app.agent.tool_registry import ToolRegistry, ToolSpec
+class ToolRegistry:
+    def __init__(self):
+        # UNIVERSAL ANCHOR: Find the root relative to this file's location
+        # app/agent/scaffold.py -> go up 2 levels to get to the root
+        self.root = Path(__file__).resolve().parent.parent.parent
+        self.tools_dir = self.root / "tools" / "run"
+        
+        self.registry = {
+            "exec": self.tools_dir / "exec.py",
+            "read": self.tools_dir / "read.py",
+            "write": self.tools_dir / "write.py",
+            "scaffold": self.tools_dir / "scaffold.py"
+        }
 
+    def dispatch(self, call: ToolCall) -> str:
+        if call.name not in self.registry:
+            raise ValueError(f"Unknown tool: {call.name}")
+        
+        # .as_posix() ensures forward slashes even on Windows for consistency
+        # wrapping in quotes handles any spaces in the directory names
+        script_path = f'"{self.registry[call.name].as_posix()}"'
+        
+        if call.name == "exec":
+            return f"python {script_path}"
+        
+        args_str = " ".join([f'"{v}"' if " " in str(v) else str(v) for v in call.args.values()])
+        return f"python {script_path} {args_str}"
+
+def get_registry() -> ToolRegistry:
+    return ToolRegistry()
 
 def build_default_registry() -> ToolRegistry:
-    """Register a safe default tool set backed by `tools/run/*` scripts."""
-    registry = ToolRegistry()
-    registry.register(
-        ToolSpec(
-            name="read_file",
-            schema={
-                "type": "object",
-                "required": ["path"],
-                "properties": {"path": {"type": "string"}},
-            },
-            side_effect="read",
-            timeout_seconds=10,
-        )
-    )
-    registry.register(
-        ToolSpec(
-            name="write_file",
-            schema={
-                "type": "object",
-                "required": ["path", "content"],
-                "properties": {
-                    "path": {"type": "string"},
-                    "content": {"type": "string"},
-                },
-            },
-            side_effect="write",
-            timeout_seconds=20,
-        )
-    )
-    registry.register(
-        ToolSpec(
-            name="exec_python",
-            schema={
-                "type": "object",
-                "required": ["code"],
-                "properties": {"code": {"type": "string"}},
-            },
-            side_effect="exec",
-            timeout_seconds=20,
-        )
-    )
-    registry.register(
-        ToolSpec(
-            name="scaffold_package",
-            schema={
-                "type": "object",
-                "required": ["name"],
-                "properties": {"name": {"type": "string"}},
-            },
-            side_effect="write",
-            timeout_seconds=10,
-        )
-    )
-    return registry
+    return ToolRegistry()
