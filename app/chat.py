@@ -1,13 +1,17 @@
-"""
-Chat Orchestrator: 6-Stage Execution Pipeline
+"""Enhanced Chat Orchestrator: 6-Stage Pipeline + LLM Integration
 
 Flow:
   1. PARSE: Extract intent from user input
   2. ROUTE: Map intent to tool chain (verb matching)
   3. PLAN: Convert tool chain into AgentTask with steps
   4. EXECUTE: Run each step via HamiltonExecutor
-  5. EVALUATE: Five Masters governance hook (stubbed)
+  5. EVALUATE: Pass through Five Masters governance hook
   6. FORMAT: Structure output for user display
+
+With LLM integration:
+  - Tool output goes to model for reasoning
+  - Model can generate followup tasks
+  - Reasoning stored in task context
 """
 from __future__ import annotations
 import re
@@ -22,6 +26,9 @@ from .agent.executor import HamiltonExecutor
 from .agent.planner import SovereignPlanner
 from .agent.contracts import AgentTask, ToolCall, ToolResult, ExecutionContext
 from .system_tools import get_system_snapshot
+from .llm_client import LLMClient
+from .client import create_client
+from .controller import JarvisOneForAll
 
 
 class IntentType(Enum):
@@ -37,12 +44,14 @@ class IntentType(Enum):
 
 @dataclass
 class ChatSession:
-    """Encapsulates chat state and orchestration."""
+    """Encapsulates chat state and orchestration with LLM."""
     model: str
     system_prompt: str
     registry: Any = field(default_factory=build_default_registry)
     executor: Optional[HamiltonExecutor] = None
     planner: Optional[SovereignPlanner] = None
+    llm_client: Optional[LLMClient] = None
+    reasoning_enabled: bool = True
 
     def __post_init__(self):
         """Initialize agent subsystems."""
@@ -50,14 +59,17 @@ class ChatSession:
             self.executor = HamiltonExecutor(self.registry)
         if self.planner is None:
             self.planner = SovereignPlanner()
+        if self.llm_client is None:
+            try:
+                config = create_client()
+                self.llm_client = LLMClient(config)
+            except Exception as e:
+                print(f"[WARN] LLM init failed: {e}. Operating in tool-only mode.")
+                self.llm_client = None
 
     # === STAGE 1: PARSE ===
     def _parse_intent(self, user_input: str) -> tuple[IntentType, str]:
-        """Extract intent type and core command from user input.
-        
-        Returns:
-            (IntentType, core_command_string)
-        """
+        """Extract intent type and core command from user input."""
         raw = user_input.strip()
         lower = raw.lower()
 
@@ -81,15 +93,10 @@ class ChatSession:
 
     # === STAGE 2: ROUTE ===
     def _route_to_tools(self, intent: IntentType, command: str) -> List[Dict[str, Any]]:
-        """Map intent to tool chain.
-        
-        Returns:
-            List of {"tool": name, "args": {...}} dicts
-        """
+        """Map intent to tool chain."""
         tools = []
 
         if intent == IntentType.EXECUTE:
-            # Auto-route to appropriate executor based on command
             if command.startswith("pip "):
                 action = "install" if "install" in command else "uninstall"
                 libs = command.replace("pip install ", "").replace("pip uninstall ", "").split()
@@ -102,7 +109,6 @@ class ChatSession:
         elif intent == IntentType.READ:
             tools.append({"tool": "read", "args": {"path": command}})
         elif intent == IntentType.WRITE:
-            # parse: "path:content" or just content → file
             if ":" in command:
                 path, content = command.split(":", 1)
                 tools.append({"tool": "write", "args": {"path": path.strip(), "content": content.strip()}})
@@ -133,33 +139,48 @@ class ChatSession:
 
     # === STAGE 5: EVALUATE ===
     def _evaluate_results(self, results: List[ToolResult]) -> bool:
-        """Hook for Five Masters evaluation (stubbed).
-        
-        In a full implementation, this would:
-        - Check code quality (AST-based Five Masters)
-        - Validate output format
-        - Flag suspicious patterns
-        
-        For now: Always pass.
-        """
+        """Hook for Five Masters evaluation (stubbed)."""
         return True  # TODO: Integrate Five Masters
 
-    # === STAGE 6: FORMAT ===
-    def _format_output(self, results: List[ToolResult], intent: IntentType) -> str:
-        """Format tool results for user display."""
+    # === STAGE 6: FORMAT + LLM REASONING ===
+    def _format_output(self, results: List[ToolResult], user_input: str, intent: IntentType) -> str:
+        """Format results and optionally use LLM for reasoning."""
         if not results:
             return "[No tools executed]"
 
-        formatted = []
-        for result in results:
-            status_icon = "✓" if result.success else "✗"
-            output_text = result.output.strip() if result.output else "(no output)"
+        # Collect raw output
+        raw_output = "\n".join(
+            f"[{r.call_id}] {'✓' if r.success else '✗'}\n{r.output}"
+            for r in results
+        )
 
-            formatted.append(
-                f"\n--- {result.call_id} {status_icon} ---\n{output_text}\n"
-            )
+        # If LLM available and reasoning enabled, ask for interpretation
+        if self.llm_client and self.reasoning_enabled and intent in [
+            IntentType.EXECUTE,
+            IntentType.READ,
+            IntentType.STATUS,
+        ]:
+            try:
+                reasoning_prompt = f"""
+User asked: {user_input}
 
-        return "".join(formatted)
+Tool output:
+{raw_output}
+
+Briefly explain what this output means and if any action is needed.
+Keep response under 100 words. Be direct and technical.
+"""
+                reasoning = self.llm_client.generate_text(
+                    reasoning_prompt,
+                    system=self.system_prompt,
+                    max_tokens=150,
+                )
+                return f"{raw_output}\n\n[REASONING]\n{reasoning}"
+            except Exception as e:
+                # Fallback to raw output if LLM fails
+                return raw_output
+        else:
+            return raw_output
 
     # === PUBLIC RUN TURN ===
     def run_turn(self, user_input: str) -> str:
@@ -171,6 +192,17 @@ class ChatSession:
         if intent == IntentType.EXIT:
             return "[EXITING]"
         elif intent == IntentType.UNKNOWN:
+            # Try LLM for unknown intents
+            if self.llm_client and self.reasoning_enabled:
+                try:
+                    response = self.llm_client.generate_text(
+                        user_input,
+                        system=self.system_prompt,
+                        max_tokens=200,
+                    )
+                    return response
+                except Exception:
+                    pass
             return f'[UNRECOGNIZED]: "{user_input}". Try: run, read, write, status, help, exit'
 
         # Stage 2: Route
@@ -189,17 +221,29 @@ class ChatSession:
         if not is_valid:
             return "[EVALUATION FAILED: Governance violation]"
 
-        # Stage 6: Format
-        return self._format_output(results, intent)
+        # Stage 6: Format + Reasoning
+        return self._format_output(results, user_input, intent)
 
 
 def run_chat():
-    """Main chat loop: REPL for the Shard."""
-    from app.controller import JarvisOneForAll
-
+    """Main chat loop: REPL for the Shard with LLM support."""
     boss = JarvisOneForAll()
-    session = ChatSession(model="J.gguf", system_prompt=boss.get_system_header())
+    config = None
+    try:
+        config = create_client()
+    except Exception as e:
+        print(f"[WARN] Config load failed: {e}")
+
+    session = ChatSession(
+        model="J.gguf",
+        system_prompt=boss.get_system_header(),
+    )
+
     print(f"\n[B.L.U.E.-J.] Logic: Stabilized. All systems wired.")
+    if session.llm_client:
+        print(f"[B.L.U.E.-J.] LLM: ACTIVE at {session.llm_client.base_url}")
+    else:
+        print(f"[B.L.U.E.-J.] LLM: OFFLINE (tool-only mode)")
     print(f"[B.L.U.E.-J.] Type 'help' for commands, 'exit' to quit.\n")
 
     while True:
