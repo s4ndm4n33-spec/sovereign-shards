@@ -1,4 +1,5 @@
-"""Chat Orchestrator: 6-Stage Execution Pipeline
+"""
+Chat Orchestrator: 6-Stage Execution Pipeline
 
 Flow:
   1. PARSE: Extract intent from user input
@@ -66,13 +67,13 @@ class ChatSession:
             return IntentType.HELP, ""
         elif any(lower.startswith(x) for x in ["status", "snapshot", "health", "check"]):
             return IntentType.STATUS, ""
-        elif any(lower.startswith(x) for x in ["run ", "execute ", "bash ", "exec "]):
+        elif any(lower.startswith(x) for x in ["run ", "execute ", "bash ", "exec ", "cmd "]):
             core = raw.split(" ", 1)[1] if " " in raw else ""
             return IntentType.EXECUTE, core
         elif any(lower.startswith(x) for x in ["read ", "cat ", "show "]):
             path = raw.split(" ", 1)[1].strip() if " " in raw else ""
             return IntentType.READ, path
-        elif any(lower.startswith(x) for x in ["write ", "save "]):
+        elif any(lower.startswith(x) for x in ["write ", "save ", "create "]):
             content = raw.split(" ", 1)[1].strip() if " " in raw else ""
             return IntentType.WRITE, content
         else:
@@ -88,7 +89,16 @@ class ChatSession:
         tools = []
 
         if intent == IntentType.EXECUTE:
-            tools.append({"tool": "exec", "args": {"command": command}})
+            # Auto-route to appropriate executor based on command
+            if command.startswith("pip "):
+                action = "install" if "install" in command else "uninstall"
+                libs = command.replace("pip install ", "").replace("pip uninstall ", "").split()
+                tools.append({"tool": "packager_tool", "args": {"libs": libs, "action": action}})
+            elif command.startswith("sql:"):
+                query = command.replace("sql:", "", 1).strip()
+                tools.append({"tool": "execute_sql_tool", "args": {"sql_query": query}})
+            else:
+                tools.append({"tool": "bash", "args": {"command": command}})
         elif intent == IntentType.READ:
             tools.append({"tool": "read", "args": {"path": command}})
         elif intent == IntentType.WRITE:
@@ -99,9 +109,9 @@ class ChatSession:
             else:
                 tools.append({"tool": "write", "args": {"path": "output.txt", "content": command}})
         elif intent == IntentType.STATUS:
-            tools.append({"tool": "snapshot", "args": {}})
+            tools.append({"tool": "sentry", "args": {}})
         elif intent == IntentType.HELP:
-            tools.append({"tool": "help", "args": {}})
+            tools.append({"tool": "suggest_deploy", "args": {}})
 
         return tools
 

@@ -1,7 +1,7 @@
 import argparse
 
 def report(summary):
-    # Fulfills requirement to use simple language and icons [cite: 146, 147]
+    # Fulfills requirement to use simple language and icons
     items = summary.split('|')
     print("\n--- PROGRESS REPORT ---")
     for item in items[:5]:

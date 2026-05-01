@@ -21,7 +21,7 @@ def str_replace(path, old_str, new_str):
         content = f.read()
     
     if content.count(old_str) != 1:
-        return "Error: old_str must be unique in the file." [cite: 119]
+        return "Error: old_str must be unique in the file."
     
     new_content = content.replace(old_str, new_str)
     with open(path, 'w') as f:

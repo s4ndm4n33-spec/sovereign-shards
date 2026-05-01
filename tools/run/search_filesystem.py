@@ -3,7 +3,7 @@ import argparse
 
 def search_files(query):
     results = []
-    root_dir = "." # [cite: 63]
+    root_dir = "." 
     for root, dirs, files in os.walk(root_dir):
         for file in files:
             if file.endswith((".py", ".md", ".txt")):

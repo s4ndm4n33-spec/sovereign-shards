@@ -1,6 +1,6 @@
 import sys
 import argparse
-import sqlite3 # Local Shard uses SQLite for Ritchie-compliance
+import sqlite3
 
 def run_sql(query):
     try:
@@ -13,7 +13,7 @@ def run_sql(query):
             return f"Results: {results}"
         
         conn.commit()
-        return "Query executed and committed." [cite: 139]
+        return "Query executed and committed."
     except Exception as e:
         return f"Database Error: {str(e)}"
     finally:
