@@ -18,7 +18,6 @@ class ChatSession:
         self.planner = SovereignPlanner()
 
     def _run_turn(self, user_input: str) -> str:
-    def _run_turn(self, user_input: str) -> str:
         raw_cmd = user_input.strip()
         cmd_lower = raw_cmd.lower()
         task = self.planner.create_plan(goal=user_input)
@@ -26,9 +25,13 @@ class ChatSession:
         if any(cmd_lower.startswith(x) for x in ['run ', 'execute ', 'bash ']):
             core_command = raw_cmd.split(' ', 1)[1]
             task.steps.append({'tool': 'exec', 'args': {'command': ['--command', core_command]}})
+        
         elif 'read ' in cmd_lower:
             path = raw_cmd.split('read ', 1)[1].strip()
             task.steps.append({'tool': 'read', 'args': {'path': path}})
+        
+        elif 'hamilton sweep' in cmd_lower:
+            task.steps.append({'tool': 'hamilton_sweep', 'args': {}})
         
         if not task.steps:
             if 'status' in cmd_lower:
@@ -45,13 +48,16 @@ class ChatSession:
             status_icon = "✓" if result.success else "✗"
             
             formatted_res = (
-                f"\n--- TOOL: {task.steps[i]['tool'].upper()} {status_icon} ---\n"
-                f"{output_text}\n"
-                f"----------------------------"
-            )
-            results.append(formatted_res)
+            f"\n--- TOOL: {task.steps[i]['tool'].upper()} {status_icon} ---\n"
+            f"{output_text}\n"
+            f"----------------------------"
+            # app/chat.py - Corrected Line 51
+
+)
+            
+        return "\n".join(results)   
         
-        return "\n".join(results)
+        
 
 def run_chat():
     from app.controller import JarvisOneForAll
