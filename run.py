@@ -2,13 +2,19 @@
 
 Single command to launch the full agent with diagnostics.
 """
+import os 
 import sys
 import argparse
 from app.doctor import run_doctor
 from app.local_server import LocalLlamaServer
 from app.client import create_client
 
+os.environ["PYTHONIOENCODING"] = "utf-8"
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 def main():
     parser = argparse.ArgumentParser(
         description="B.L.U.E.-J. Sovereign Shard Runtime",

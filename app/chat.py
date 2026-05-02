@@ -66,8 +66,39 @@ class ChatSession:
             except Exception as e:
                 print(f"[WARN] LLM init failed: {e}. Operating in tool-only mode.")
                 self.llm_client = None
+    
+    
+    def fast_route(self, user_input: str) -> Optional[tuple[IntentType, str]]:
+        text = user_input.strip()
+        lower = text.lower()
 
-    # === STAGE 1: PARSE ===
+          # --- NORMALIZATION STEP --- #
+        if (text.startswith("'") and text.endswith("'")) or (
+            text.startswith('"') and text.endswith('"')):
+            text = text[1:-1].strip()
+
+            lower = text.lower() 
+        
+        if lower.startswith(("read ", "cat ", "show ")):
+            path = text.split(" ", 1)[1].strip() if " " in text else ""
+            return IntentType.READ, path
+
+        if lower.startswith(("write ", "save ", "create ")):
+            content = text.split(" ", 1)[1].strip() if " " in text else ""
+            return IntentType.WRITE, content
+
+        if lower in ["status", "snapshot", "health", "check"]:
+            return IntentType.STATUS, ""
+
+        if lower in ["help", "?", "h"]:
+            return IntentType.HELP, ""
+
+        if lower in ["exit", "quit", "q"]:
+            return IntentType.EXIT, ""
+
+        return None
+    
+     # === STAGE 1: PARSE ===
     def _parse_intent(self, user_input: str) -> tuple[IntentType, str]:
         """Extract intent type and core command from user input."""
         raw = user_input.strip()
@@ -185,8 +216,15 @@ Keep response under 100 words. Be direct and technical.
     # === PUBLIC RUN TURN ===
     def run_turn(self, user_input: str) -> str:
         """Execute one full chat turn: parse → route → plan → execute → evaluate → format."""
-        # Stage 1: Parse
-        intent, command = self._parse_intent(user_input)
+        
+        # --- FAST ROUTER --- #
+        fast = self.fast_route(user_input)
+      
+        if fast:
+            intent, command = fast
+        else:
+            # fallback to existing parser
+            intent, command = self._parse_intent(user_input)
 
         # Handle special cases
         if intent == IntentType.EXIT:

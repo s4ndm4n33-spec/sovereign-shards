@@ -53,14 +53,18 @@ def check_llm_server(config: RuntimeConfig) -> tuple[bool, str]:
 def check_tools() -> tuple[bool, str]:
     """Validate tool registry."""
     try:
+        #--- SEAM START: TOOL REGISTRY CONTRACT FIX ---#
         registry = build_default_registry()
-        tools = registry.tools
+        tools = registry.list_tools()
+
         if not tools:
             return False, "  ✗ No tools found"
+
         return True, f"  ✓ {len(tools)} tools registered"
+        #--- SEAM END ---#
+
     except Exception as e:
         return False, f"  ✗ Tool registry error: {e}"
-
 
 def check_disk() -> tuple[bool, str]:
     """Check disk space."""
