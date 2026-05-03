@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from json import dumps, loads
+import ast
+import re
+from json import JSONDecodeError, dumps, loads
 from pathlib import Path
 from urllib.request import Request, urlopen
 
 from app.client import RuntimeConfig, create_client
+from app.file_tools import list_dir, read_file, write_file
 from app.local_server import LocalLlamaServer
 from app.session import SessionLogger
 from app.system_tools import get_system_snapshot
@@ -18,17 +21,86 @@ PROMPTS_DIR = BASE_DIR / "prompts"
 
 SYSTEM_PROMPT = (PROMPTS_DIR / "J-system.txt").read_text(encoding="utf-8")
 
+TOOL_INSTRUCTIONS = (
+    "\n\n[Tool Usage]\n"
+    "You may use a local tool when you need to inspect or modify the repository. "
+    "When a tool is required, respond with exactly the following format:\n"
+    "ACTION:\n"
+    "{\"tool\": \"<tool_name>\", \"args\": [arg1, arg2, ...]}\n"
+    "Only use these tools when they are necessary. If no tool is needed, answer directly.\n"
+    "Available tools:\n"
+    "- read_file(path)\n"
+    "- write_file(path, content)\n"
+    "- list_dir(path)\n"
+    "- system_snapshot()\n"
+    "All paths are relative to the shard root unless an absolute path is provided."
+)
 
-def build_history(system_context: str = ""):
+
+def _assistant_role(client: RuntimeConfig) -> str:
+    return "J" if client.backend == "llama_cpp" else "assistant"
+
+
+def _system_role(client: RuntimeConfig) -> str:
+    return "J" if client.backend == "llama_cpp" else "system"
+
+
+def build_history(client: RuntimeConfig, system_context: str = ""):
     return [
         {
-            "role": "system",
-            "content": SYSTEM_PROMPT + (
+            "role": _system_role(client),
+            "content": SYSTEM_PROMPT + TOOL_INSTRUCTIONS + (
                 f"\n\n[Context]\n{system_context}"
                 if system_context else ""
-            )
+            ),
         }
     ]
+
+
+def _extract_action(content: str) -> dict | None:
+    if "ACTION:" not in content:
+        return None
+
+    payload = content.split("ACTION:", 1)[1].strip()
+    if not payload:
+        return None
+
+    if match := re.search(r"\{.*\}", payload, flags=re.S):
+        payload = match.group(0)
+
+    try:
+        return loads(payload)
+    except JSONDecodeError:
+        try:
+            return ast.literal_eval(payload)
+        except Exception:
+            return None
+
+
+def _execute_tool(action: dict) -> str:
+    tool_name = action.get("tool")
+    tool_args = action.get("args", [])
+
+    if not tool_name:
+        return "[TOOL ERROR] Tool name is missing."
+    if not isinstance(tool_args, list):
+        return "[TOOL ERROR] Tool args must be a list."
+
+    tools = {
+        "read_file": read_file,
+        "write_file": write_file,
+        "list_dir": list_dir,
+        "system_snapshot": get_system_snapshot,
+    }
+
+    tool = tools.get(tool_name)
+    if tool is None:
+        return f"[TOOL ERROR] Unknown tool: {tool_name}"
+
+    try:
+        return str(tool(*tool_args))
+    except Exception as error:
+        return f"[TOOL ERROR] {tool_name} failed: {error}"
 
 
 def _ollama_chat(client: RuntimeConfig, messages: list[dict[str, str]]):
@@ -181,13 +253,41 @@ def _run_turn(
     logger.append("user", user_message)
 
     reply = _stream_reply(client, messages)
-
     print()
 
-    messages.append({"role": "assistant", "content": reply})
+    assistant_role = _assistant_role(client)
+    messages.append({"role": assistant_role, "content": reply})
     logger.append("assistant", reply)
 
-    return reply
+    action = _extract_action(reply)
+    if action is None:
+        return reply
+
+    tool_result = _execute_tool(action)
+    tool_response = (
+        "[TOOL EXECUTION]\n"
+        f"tool: {action.get('tool')}\n"
+        f"args: {action.get('args', [])}\n"
+        f"result:\n{tool_result}"
+    )
+
+    print(f"\n{tool_response}\n")
+    messages.append({"role": assistant_role, "content": tool_response})
+    logger.append("assistant", tool_response)
+
+    continuation_prompt = (
+        "Continue your answer using the tool result above. "
+        "Do not repeat the tool invocation."
+    )
+    messages.append({"role": "user", "content": continuation_prompt})
+    logger.append("user", continuation_prompt)
+
+    final_reply = _stream_reply(client, messages)
+    print()
+    messages.append({"role": assistant_role, "content": final_reply})
+    logger.append("assistant", final_reply)
+
+    return final_reply
 
 
 def run_chat(
@@ -200,7 +300,7 @@ def run_chat(
 
     client = create_client()
     logger = SessionLogger(model=f"{client.backend}:{client.model}")
-    messages = build_history(_format_hardware_context())
+    messages = build_history(client, _format_hardware_context())
     local_server = LocalLlamaServer(client)
 
     try:

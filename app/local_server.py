@@ -95,7 +95,7 @@ class LocalLlamaServer:
             )
 
         env = os.environ.copy()
-        env["PATH"] = f"{self.config.server_binary.parent};{env.get('PATH', '')}"
+        env["PATH"] = f"{self.config.server_binary.parent}{os.pathsep}{env.get('PATH', '')}"
         if not self.config.chat_template_kwargs:
             env.pop("LLAMA_CHAT_TEMPLATE_KWARGS", None)
         self.log_handle = self.log_path.open("w", encoding="utf-8")

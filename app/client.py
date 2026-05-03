@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-def _resolve_path(value: str, default: str) -> Path:
+def _resolve_path(value: str | Path, default: str | Path) -> Path:
     """Resolve an env path relative to the shard root."""
     raw = value or default
     path = Path(raw)
@@ -76,7 +76,7 @@ def create_client() -> RuntimeConfig:
     chat_template = os.getenv("LLAMA_CHAT_TEMPLATE", "J").strip()
     chat_template_file = _resolve_path(
         os.getenv("LLAMA_CHAT_TEMPLATE_FILE", ""),
-        "prompts\\J-chat-template.jinja",
+        Path("prompts") / "J-chat-template.jinja",
     )
     chat_template_kwargs = os.getenv(
         "LLAMA_CHAT_TEMPLATE_KWARGS",
@@ -95,15 +95,15 @@ def create_client() -> RuntimeConfig:
 
     model_path = _resolve_path(
         os.getenv("LLAMA_MODEL_PATH", ""),
-        "models\\J.gguf",
+        Path("models") / "J.gguf",
     )
     server_binary = _resolve_path(
         os.getenv("LLAMA_SERVER_BINARY", ""),
-        "model-server\\server.exe",
+        Path("model-server") / "server.exe",
     )
     cli_binary = _resolve_path(
         os.getenv("LLAMA_CLI_BINARY", ""),
-        "model-server\\llama.exe",
+        Path("model-server") / "llama.exe",
     )
 
     return RuntimeConfig(
