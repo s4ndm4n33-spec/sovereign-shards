@@ -1,0 +1,136 @@
+{
+  "project": "sovereign-shards",
+  "generated_at": "2026-05-04",
+  "purpose": "Portable migration log for recreating the ToolRegistry + chat-loop integration in another environment.",
+  "source_branch": "work",
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Introduce dynamic tool registry",
+      "summary": "Added app.agent package and ToolRegistry to unify built-in and script-backed tools.",
+      "files": [
+        "app/agent/__init__.py",
+        "app/agent/tool_registry.py"
+      ],
+      "actions": [
+        "Create app/agent package",
+        "Implement ToolSpec metadata model",
+        "Implement ScriptTool subprocess wrapper",
+        "Auto-discover tools/run/*.py as run_<script_name>",
+        "Expose execute() and describe() APIs"
+      ],
+      "compatibility_notes": [
+        "Registry supports both built-in Python callables and script tools.",
+        "Unknown tools now return a structured error containing available tool names."
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Integrate registry into chat loop",
+      "summary": "Replaced ad-hoc tool dispatch in app/chat.py with registry-backed execution and dynamic tool listing.",
+      "files": [
+        "app/chat.py"
+      ],
+      "actions": [
+        "Inject ToolRegistry into run_chat startup path",
+        "Use registry-driven instructions in system prompt",
+        "Route tool ACTION payloads through registry.execute",
+        "Keep bounded multi-tool loop (max 3 hops)",
+        "Keep PROCESS_PAUSE_SECONDS breathers between steps"
+      ],
+      "compatibility_notes": [
+        "Natural-language replies remain default; tool calls are opt-in via ACTION payload.",
+        "Tool inventory displayed by /tools comes from registry.describe()."
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Add quick-build intent",
+      "summary": "Added direct command handling for build <name> [now] to scaffold projects without waiting for model tool formatting.",
+      "files": [
+        "app/chat.py"
+      ],
+      "actions": [
+        "Parse build command in interactive loop",
+        "Execute run_scaffold via registry",
+        "Log quick-build result to session log"
+      ],
+      "compatibility_notes": [
+        "Fast-path reduces UX failures from command-style prompts.",
+        "Falls back to normal model chat for non-build input."
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "Harden file tools for chunking and FAT32 limits",
+      "summary": "Upgraded file helpers to chunked reads and 4GB-safe writes.",
+      "files": [
+        "app/file_tools.py"
+      ],
+      "actions": [
+        "Add _resolve for absolute/relative paths",
+        "Implement read_file(path, offset, chunk_bytes)",
+        "Implement write_file(path, content, append)",
+        "Enforce MAX_FILE_BYTES=4GB",
+        "Validate directory/file path types"
+      ],
+      "compatibility_notes": [
+        "Designed for removable media constraints (FAT32 class devices).",
+        "Chunk headers expose next_offset and eof for resumable processing."
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "Add script-tool metadata manifest",
+      "summary": "Introduced tools/run/registry.json and consumed metadata in ToolRegistry for better tool selection and argument validation.",
+      "files": [
+        "tools/run/registry.json",
+        "app/agent/tool_registry.py"
+      ],
+      "actions": [
+        "Define script tool descriptions and arg signatures",
+        "Load manifest in ToolRegistry",
+        "Validate required args before executing tool",
+        "Enhance describe() output with signatures"
+      ],
+      "compatibility_notes": [
+        "Manifest missing/invalid -> registry gracefully falls back to defaults.",
+        "run_exec uses stdin for code payload compatibility."
+      ]
+    },
+    {
+      "id": "M6",
+      "title": "CLI and operator docs",
+      "summary": "Added manual discoverability and runtime operation docs.",
+      "files": [
+        "run.py",
+        "docs/USER_MANUAL.md",
+        "docs/FINAL_PUSH_NOTES.md"
+      ],
+      "actions": [
+        "Add --manual flag",
+        "Document chat commands and tool flow",
+        "Document storage limits and troubleshooting"
+      ],
+      "compatibility_notes": [
+        "Documentation reflects registry-driven tool model and quick-build behavior."
+      ]
+    }
+  ],
+  "migration_order": ["M1", "M2", "M4", "M5", "M3", "M6"],
+  "validation": {
+    "commands": [
+      "python -m compileall run.py app",
+      "python -m compileall app/chat.py",
+      "python -m compileall app/agent/tool_registry.py"
+    ],
+    "expected": "No syntax errors."
+  },
+  "handoff_checklist": [
+    "Ensure tools/run scripts exist and are executable by Python.",
+    "Ensure tools/run/registry.json matches available run_ tool names.",
+    "Verify /tools output lists both built-ins and run_* tools.",
+    "Verify 'build starter_agent now' scaffolds folder and logs output.",
+    "Verify file writes over 4GB are rejected with explicit error."
+  ]
+}

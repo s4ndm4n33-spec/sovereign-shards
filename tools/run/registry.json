@@ -1,0 +1,18 @@
+{
+  "run_read": {
+    "description": "Read a UTF-8 text file and print full contents.",
+    "args": ["path"]
+  },
+  "run_write": {
+    "description": "Write provided content to a UTF-8 text file.",
+    "args": ["path", "content"]
+  },
+  "run_exec": {
+    "description": "Execute provided Python code in a subprocess.",
+    "args": ["code"]
+  },
+  "run_scaffold": {
+    "description": "Create a package directory with __init__.py.",
+    "args": ["name"]
+  }
+}

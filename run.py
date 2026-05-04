@@ -17,8 +17,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run the Sovereign Shard.")
     parser.add_argument("--message", help="Send a single prompt and exit.")
     parser.add_argument("--paths", action="store_true")
+    parser.add_argument("--manual", action="store_true", help="Print the user manual path.")
 
     args = parser.parse_args()
+
+    if args.manual:
+        print(BASE_DIR / "docs" / "USER_MANUAL.md")
+        return
 
     if args.paths:
         print(f"Shard: {BASE_DIR}")

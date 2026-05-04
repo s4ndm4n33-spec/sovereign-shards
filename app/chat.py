@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import ast
 import re
+import time
 from json import JSONDecodeError, dumps, loads
 from pathlib import Path
 from urllib.request import Request, urlopen
 
+from app.agent import ToolRegistry
 from app.client import RuntimeConfig, create_client
 from app.file_tools import list_dir, read_file, write_file
 from app.local_server import LocalLlamaServer
@@ -15,13 +17,15 @@ from app.session import SessionLogger
 from app.system_tools import get_system_snapshot
 from core.fivemasters import evaluate_code
 
+PROCESS_PAUSE_SECONDS = 0.2
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = BASE_DIR / "prompts"
 
 SYSTEM_PROMPT = (PROMPTS_DIR / "J-system.txt").read_text(encoding="utf-8")
 
-TOOL_INSTRUCTIONS = (
+BASE_TOOL_INSTRUCTIONS = (
     "\n\n[Tool Usage]\n"
     "You may use a local tool when you need to inspect or modify the repository. "
     "When a tool is required, respond with exactly the following format:\n"
@@ -45,11 +49,15 @@ def _system_role(client: RuntimeConfig) -> str:
     return "J" if client.backend == "llama_cpp" else "system"
 
 
-def build_history(client: RuntimeConfig, system_context: str = ""):
+def _build_tool_instructions(registry: ToolRegistry) -> str:
+    return BASE_TOOL_INSTRUCTIONS + "\n" + registry.describe()
+
+
+def build_history(client: RuntimeConfig, registry: ToolRegistry, system_context: str = ""):
     return [
         {
             "role": _system_role(client),
-            "content": SYSTEM_PROMPT + TOOL_INSTRUCTIONS + (
+            "content": SYSTEM_PROMPT + _build_tool_instructions(registry) + (
                 f"\n\n[Context]\n{system_context}"
                 if system_context else ""
             ),
@@ -77,7 +85,7 @@ def _extract_action(content: str) -> dict | None:
             return None
 
 
-def _execute_tool(action: dict) -> str:
+def _execute_tool(action: dict, registry: ToolRegistry) -> str:
     tool_name = action.get("tool")
     tool_args = action.get("args", [])
 
@@ -86,21 +94,7 @@ def _execute_tool(action: dict) -> str:
     if not isinstance(tool_args, list):
         return "[TOOL ERROR] Tool args must be a list."
 
-    tools = {
-        "read_file": read_file,
-        "write_file": write_file,
-        "list_dir": list_dir,
-        "system_snapshot": get_system_snapshot,
-    }
-
-    tool = tools.get(tool_name)
-    if tool is None:
-        return f"[TOOL ERROR] Unknown tool: {tool_name}"
-
-    try:
-        return str(tool(*tool_args))
-    except Exception as error:
-        return f"[TOOL ERROR] {tool_name} failed: {error}"
+    return registry.execute(tool_name, tool_args)
 
 
 def _ollama_chat(client: RuntimeConfig, messages: list[dict[str, str]]):
@@ -247,48 +241,73 @@ def _run_turn(
     messages: list[dict[str, str]],
     logger: SessionLogger,
     user_message: str,
+    registry: ToolRegistry,
 ) -> str:
 
     messages.append({"role": "user", "content": user_message})
     logger.append("user", user_message)
 
+    assistant_role = _assistant_role(client)
     reply = _stream_reply(client, messages)
     print()
-
-    assistant_role = _assistant_role(client)
     messages.append({"role": assistant_role, "content": reply})
     logger.append("assistant", reply)
 
-    action = _extract_action(reply)
-    if action is None:
-        return reply
+    # bounded tool loop for multi-step tool use in one user turn
+    for _ in range(3):
+        action = _extract_action(reply)
+        if action is None:
+            return reply
 
-    tool_result = _execute_tool(action)
-    tool_response = (
-        "[TOOL EXECUTION]\n"
-        f"tool: {action.get('tool')}\n"
-        f"args: {action.get('args', [])}\n"
-        f"result:\n{tool_result}"
-    )
+        tool_result = _execute_tool(action, registry)
+        time.sleep(PROCESS_PAUSE_SECONDS)
+        tool_response = (
+            "[TOOL EXECUTION]\n"
+            f"tool: {action.get('tool')}\n"
+            f"args: {action.get('args', [])}\n"
+            f"result:\n{tool_result}"
+        )
 
-    print(f"\n{tool_response}\n")
-    messages.append({"role": assistant_role, "content": tool_response})
-    logger.append("assistant", tool_response)
+        print(f"\n{tool_response}\n")
+        messages.append({"role": assistant_role, "content": tool_response})
+        logger.append("assistant", tool_response)
 
-    continuation_prompt = (
-        "Continue your answer using the tool result above. "
-        "Do not repeat the tool invocation."
-    )
-    messages.append({"role": "user", "content": continuation_prompt})
-    logger.append("user", continuation_prompt)
+        continuation_prompt = (
+            "Continue your answer using the tool result above. "
+            "Only invoke another tool if absolutely required."
+        )
+        messages.append({"role": "user", "content": continuation_prompt})
+        logger.append("user", continuation_prompt)
 
-    final_reply = _stream_reply(client, messages)
-    print()
-    messages.append({"role": assistant_role, "content": final_reply})
-    logger.append("assistant", final_reply)
+        time.sleep(PROCESS_PAUSE_SECONDS)
+        reply = _stream_reply(client, messages)
+        print()
+        messages.append({"role": assistant_role, "content": reply})
+        logger.append("assistant", reply)
 
-    return final_reply
+    return reply
 
+
+
+
+def _handle_quick_build(user_message: str, registry: ToolRegistry, logger: SessionLogger) -> bool:
+    """Handle direct build scaffolding intents without requiring model tool-calling."""
+    lowered = user_message.strip().lower()
+    if not lowered.startswith("build "):
+        return False
+
+    target = user_message.strip()[6:].strip()
+    if target.endswith(" now"):
+        target = target[:-4].strip()
+
+    if not target:
+        print("J.: Please provide a project name, e.g. 'build starter_agent now'.")
+        return True
+
+    result = registry.execute("run_scaffold", [target])
+    print(f"J.: {result}")
+    logger.append("assistant", f"[QUICK BUILD] {result}")
+    return True
 
 def run_chat(
     initial_message: str | None = None,
@@ -300,7 +319,8 @@ def run_chat(
 
     client = create_client()
     logger = SessionLogger(model=f"{client.backend}:{client.model}")
-    messages = build_history(client, _format_hardware_context())
+    registry = ToolRegistry(BASE_DIR)
+    messages = build_history(client, registry, _format_hardware_context())
     local_server = LocalLlamaServer(client)
 
     try:
@@ -309,11 +329,13 @@ def run_chat(
         print(f"--- SOVEREIGN SHARD ONLINE [{logger.session_id}] ---")
         print(f"Backend: {client.backend}")
         print(f"Model: {client.model}")
-        print("Commands: quit, exit, /snapshot")
+        print("Commands: quit, exit, /snapshot, /help, /tools")
+        if client.backend == "llama_cpp":
+            print(f"Server log: {local_server.log_path}")
 
         if initial_message:
             print("\nJ.: ", end="", flush=True)
-            _run_turn(client, messages, logger, initial_message)
+            _run_turn(client, messages, logger, initial_message, registry)
             return
 
         while True:
@@ -326,10 +348,21 @@ def run_chat(
             if not user_message:
                 continue
 
+            if user_message == "/help":
+                print("Commands: quit, exit, /snapshot, /help, /tools")
+                continue
+
+            if user_message == "/tools":
+                print(registry.describe())
+                continue
+
             if user_message == "/snapshot":
                 snapshot = dumps(get_system_snapshot(), indent=2)
                 print(snapshot)
                 logger.append("system", snapshot)
+                continue
+
+            if _handle_quick_build(user_message, registry, logger):
                 continue
 
             # sandbox toggle
@@ -343,7 +376,7 @@ def run_chat(
 
             try:
                 print("\nJ.: ", end="", flush=True)
-                _run_turn(client, messages, logger, user_message)
+                _run_turn(client, messages, logger, user_message, registry)
 
             except RuntimeError as error:
                 print(f"\nJ. Error: {error}")
