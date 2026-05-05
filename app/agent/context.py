@@ -77,3 +77,68 @@ def trim_context(
         result = system_msgs + tail
 
     return result
+
+
+# ── Tier 1: Active Context Reconstruction ──────────────────────────
+
+
+def reconstruct_context(
+    messages: list[dict[str, str]],
+    task_hint: str,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+) -> list[dict[str, str]]:
+    """Assemble active context from all three memory tiers.
+
+    1. Keep the system message (tools, persona).
+    2. Inject relevant *working memory* entries (Tier 2) via BM25.
+    3. Inject relevant *long-term memory* entries (Tier 3) via BM25.
+    4. Keep recent conversation messages.
+    5. Trim to fit the token budget.
+    """
+    from app.agent import working_memory
+    from app.agent.memory import recall_all
+    from app.agent.retriever import retrieve
+
+    # -- Tier 2: Working memory (recent steps / decisions) --
+    wm_entries = working_memory.read_all()
+    if wm_entries and task_hint:
+        wm_relevant = retrieve(task_hint, wm_entries, top_k=8)
+    else:
+        wm_relevant = wm_entries[-8:]
+
+    # -- Tier 3: Long-term memory (learned facts / tools) --
+    lt_data = recall_all()
+    lt_chunks = [{"key": k, "text": v} for k, v in lt_data.items()]
+    if lt_chunks and task_hint:
+        lt_relevant = retrieve(task_hint, lt_chunks, top_k=5)
+    else:
+        lt_relevant = lt_chunks[:5]
+
+    # -- Build the memory injection block --
+    sections: list[str] = []
+    if wm_relevant:
+        sections.append(working_memory.format_for_context(wm_relevant))
+    if lt_relevant:
+        lt_lines = ["[LONG-TERM MEMORY]"]
+        for c in lt_relevant:
+            lt_lines.append(f"• {c.get('key', '?')}: {c.get('text', '?')}")
+        sections.append("\n".join(lt_lines))
+
+    if not sections:
+        return trim_context(messages, max_tokens=max_tokens)
+
+    mem_block = "\n\n".join(sections)
+    mem_msg: dict[str, str] = {"role": "system", "content": mem_block}
+
+    # Insert memory block right after the first system message
+    injected = list(messages)
+    insert_at = 0
+    for i, m in enumerate(injected):
+        if m.get("role") != "system":
+            insert_at = i
+            break
+    else:
+        insert_at = len(injected)
+    injected.insert(insert_at, mem_msg)
+
+    return trim_context(injected, max_tokens=max_tokens)

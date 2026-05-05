@@ -43,7 +43,11 @@ def load_task(task_id: str) -> AgentTask | None:
         return None
 
     steps = [
-        AgentStep(id=s["id"], goal=s["goal"], success_criteria=s["success_criteria"])
+        AgentStep(
+            id=s["id"], goal=s["goal"],
+            success_criteria=s["success_criteria"],
+            depends_on=tuple(s.get("depends_on", ())),
+        )
         for s in data.get("steps", [])
     ]
     return AgentTask(

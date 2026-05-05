@@ -14,8 +14,8 @@ from json import JSONDecodeError, dumps, loads
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-from app.agent import ToolRegistry
-from app.agent.context import trim_context, estimate_messages_tokens
+from app.agent import ToolRegistry, working_memory
+from app.agent.context import trim_context, reconstruct_context, estimate_messages_tokens
 from app.agent.contracts import AgentTask, ToolCall
 from app.agent.executor import (
     build_step_prompt,
@@ -23,7 +23,9 @@ from app.agent.executor import (
     format_tool_result,
     needs_confirmation,
 )
+from app.agent.graph import ready_steps, format_graph
 from app.agent.planner import build_plan_prompt, parse_plan
+from app.agent.reflection import should_reflect, build_reflect_prompt, parse_reflected, apply_reflection
 from app.agent.task_store import save_task, load_task
 from app.agent.verifier import build_verify_prompt, parse_verdict
 from app.client import RuntimeConfig, create_client
@@ -258,8 +260,10 @@ def _run_turn(
     messages.append({"role": "user", "content": user_message})
     logger.append("user", user_message)
 
-    # Trim context before sending
-    messages[:] = trim_context(messages, max_tokens=client.num_ctx)
+    # Tier 1: reconstruct active context (pulls working + long-term memory)
+    messages[:] = reconstruct_context(
+        messages, task_hint=user_message, max_tokens=client.num_ctx,
+    )
 
     rlog.event("stage_start", stage="executor")
     assistant_role = _assistant_role(client)
@@ -318,6 +322,11 @@ def _run_turn(
         logger.append("assistant", reply)
 
     rlog.event("turn_complete", chars=len(reply))
+
+    # Tier 2: compress this turn into working memory
+    wm_entry = working_memory.compress_turn(user_message, reply)
+    working_memory.append(**wm_entry)
+
     return reply
 
 
@@ -353,19 +362,21 @@ def _run_agent_task(
     save_task(task, task_id)
 
     print(f"\n[PLAN] {len(task.steps)} step(s):")
-    for step in task.steps:
-        marker = "✓" if step.id in task.completed_step_ids else "○"
-        print(f"  {marker} {step.id}: {step.goal}")
+    print(format_graph(task.steps, set(task.completed_step_ids)))
 
-    # 2. Execute each step
+    # 2. Execute steps in dependency order (graph walker)
     results_log: list[str] = []
-    for step in task.steps:
-        if step.id in task.completed_step_ids:
-            continue
+    completed = set(task.completed_step_ids)
+    while True:
+        runnable = ready_steps(task.steps, completed)
+        if not runnable:
+            break  # all done or blocked
+        step = runnable[0]  # serial execution; pick first ready step
 
         print(f"\n{'='*50}")
         print(f"[STEP {step.id}] {step.goal}")
-        print(f"[CRITERIA] {step.success_criteria}")
+        deps_label = f" (after: {', '.join(step.depends_on)})" if step.depends_on else ""
+        print(f"[CRITERIA] {step.success_criteria}{deps_label}")
         print("=" * 50)
 
         step_prompt = build_step_prompt(step, registry.describe())
@@ -391,6 +402,7 @@ def _run_agent_task(
         logger.append("system", f"[VERIFY {status}] {step.id}: {reason}")
 
         if passed:
+            completed.add(step.id)
             task.completed_step_ids.append(step.id)
             task.artifacts.append(f"{step.id}: {reason}")
             save_task(task, task_id)
@@ -455,7 +467,7 @@ def run_chat(
         print(f"Backend: {client.backend}")
         print(f"Model:   {client.model}")
         print(f"Mode:    {autonomy_mode}")
-        print("Commands: quit, exit, /snapshot, /help, /tools, /plan <goal>, /index")
+        print("Commands: quit, exit, /snapshot, /help, /tools, /plan <goal>, /index, /memory, /reflect")
         if client.backend == "llama_cpp":
             print(f"Server log: {local_server.log_path}")
 
@@ -484,6 +496,8 @@ def run_chat(
                     "  /plan <goal>     — enter agent mode (plan → execute → verify)\n"
                     "  /index           — index the project directory\n"
                     "  /mode <level>    — change autonomy (manual/semi/auto-safe/auto-full)\n"
+                    "  /memory          — show recent working memory entries\n"
+                    "  /reflect         — manually compress working memory\n"
                     "  build <name>     — quick-scaffold a package\n"
                     "  bruce wayne      — toggle sandbox"
                 )
@@ -517,6 +531,36 @@ def run_chat(
                     print("[MODE ERROR] Valid modes: manual, semi, auto-safe, auto-full")
                 continue
 
+            if user_message == "/memory":
+                entries = working_memory.read_recent(10)
+                if entries:
+                    print(working_memory.format_for_context(entries))
+                    sz = working_memory.size_bytes()
+                    print(f"\n[{sz:,} bytes — reflection {'PENDING' if should_reflect() else 'not needed'}]")
+                else:
+                    print("[WORKING MEMORY] Empty.")
+                continue
+
+            if user_message == "/reflect":
+                if not working_memory.read_all():
+                    print("[REFLECT] Working memory is empty.")
+                    continue
+                entries = working_memory.read_all()
+                print(f"[REFLECT] Compressing {len(entries)} entries...")
+                rprompt = build_reflect_prompt(entries)
+                messages.append({"role": "user", "content": rprompt})
+                messages[:] = trim_context(messages, max_tokens=client.num_ctx)
+                raw = _stream_reply(client, messages)
+                print()
+                messages.append({"role": _assistant_role(client), "content": raw})
+                consolidated = parse_reflected(raw)
+                if consolidated:
+                    apply_reflection(consolidated)
+                    print(f"[REFLECT OK] {len(entries)} → {len(consolidated)} entries")
+                else:
+                    print("[REFLECT FAIL] Could not parse; memory unchanged.")
+                continue
+
             if user_message.startswith("/plan "):
                 objective = user_message[6:].strip()
                 if objective:
@@ -544,6 +588,25 @@ def run_chat(
                 _run_turn(
                     client, messages, logger, rlog, user_message, registry, autonomy_mode
                 )
+                # Weight-triggered reflection
+                if should_reflect():
+                    entries = working_memory.read_all()
+                    print(f"\n[AUTO-REFLECT] Working memory over threshold "
+                          f"({working_memory.size_bytes():,} bytes, "
+                          f"{len(entries)} entries). Compressing...")
+                    rprompt = build_reflect_prompt(entries)
+                    messages.append({"role": "user", "content": rprompt})
+                    messages[:] = trim_context(messages, max_tokens=client.num_ctx)
+                    raw = _stream_reply(client, messages)
+                    print()
+                    messages.append({"role": _assistant_role(client), "content": raw})
+                    consolidated = parse_reflected(raw)
+                    if consolidated:
+                        apply_reflection(consolidated)
+                        print(f"[AUTO-REFLECT OK] {len(entries)} → {len(consolidated)}")
+                        rlog.event("reflection", before=len(entries), after=len(consolidated))
+                    else:
+                        print("[AUTO-REFLECT FAIL] Parse error; memory unchanged.")
             except TransportError as error:
                 print(f"\nJ. Error: {error}")
                 logger.append("error", str(error))

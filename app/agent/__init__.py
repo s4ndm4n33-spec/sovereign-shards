@@ -2,6 +2,7 @@
 
 from .tool_registry import ToolRegistry
 from .contracts import AgentStep, ToolCall, ToolResult, AgentTask
+from . import working_memory  # noqa: F401 — Tier 2
 
 __all__ = [
     "ToolRegistry",
@@ -9,4 +10,5 @@ __all__ = [
     "ToolCall",
     "ToolResult",
     "AgentTask",
+    "working_memory",
 ]

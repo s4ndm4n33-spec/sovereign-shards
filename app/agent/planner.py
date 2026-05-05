@@ -15,14 +15,18 @@ from app.agent.contracts import AgentStep, AgentTask, AutonomyMode
 
 
 PLAN_PROMPT = """You are a coding-agent planner. Given a user objective, break it into
-a sequence of small, concrete steps. Each step MUST have:
+small, concrete steps. Each step MUST have:
 - id: short slug (e.g. "step_1")
 - goal: what to do in one sentence
 - success_criteria: how to verify it worked
+- depends_on: list of step IDs that must finish first (empty list if none)
+
+Steps with no dependencies can run in parallel. Use depends_on to express ordering.
 
 Respond with ONLY a JSON array of objects. No prose, no markdown fences.
 Example:
-[{"id": "step_1", "goal": "Read the README", "success_criteria": "File content is loaded"}]
+[{{"id": "step_1", "goal": "Read the README", "success_criteria": "File content is loaded", "depends_on": []}},
+ {{"id": "step_2", "goal": "Fix the bug in main.py", "success_criteria": "Tests pass", "depends_on": ["step_1"]}}]
 
 User objective: {objective}
 """
@@ -80,7 +84,12 @@ def _try_parse_steps(raw: str) -> list[AgentStep]:
         step_id = item.get("id", f"step_{i + 1}")
         goal = item.get("goal", "")
         criteria = item.get("success_criteria", "Completed.")
+        raw_deps = item.get("depends_on", [])
+        depends_on = tuple(d for d in raw_deps if isinstance(d, str))
         if goal:
-            steps.append(AgentStep(id=step_id, goal=goal, success_criteria=criteria))
+            steps.append(AgentStep(
+                id=step_id, goal=goal,
+                success_criteria=criteria, depends_on=depends_on,
+            ))
 
     return steps

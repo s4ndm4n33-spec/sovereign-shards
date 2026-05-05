@@ -16,6 +16,7 @@ class AgentStep:
     id: str
     goal: str
     success_criteria: str
+    depends_on: tuple[str, ...] = ()  # IDs of prerequisite steps
 
 
 @dataclass(frozen=True)
