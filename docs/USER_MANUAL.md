@@ -1,7 +1,7 @@
 # J — User Manual
 
 > Production guide for the Sovereign Shards developer agent.
-> Version: `1.0` · Last updated: 2026-05-05
+> Version: `1.1` · Last updated: 2026-05-05
 
 ---
 
@@ -9,7 +9,7 @@
 
 1. [The Goal](#the-goal)
 2. [What J Can Do Today](#what-j-can-do-today)
-3. [What J Cannot Do Yet](#what-j-cannot-do-yet)
+3. [Current Limitations](#current-limitations)
 4. [Hardware Setup](#hardware-setup)
 5. [First Boot](#first-boot)
 6. [Configuration](#configuration)
@@ -49,19 +49,21 @@ The framework is complete. The raw language quality — how well J writes code, 
 - Checkpoint progress so interrupted tasks can resume
 - Walk task DAGs respecting step dependencies (not just linear lists)
 
-### Developer Tools
+### Developer Tools (14 Total)
 | Tool | What It Does |
 |------|-------------|
 | `run_read` | Read any UTF-8 file |
 | `run_write` | Write/overwrite any file |
 | `run_str_replace` | Surgical find-and-replace edits |
-| `run_bash` | Execute shell commands with timeout |
+| `run_bash` | Execute shell commands with streaming output |
 | `run_exec` | Run arbitrary Python code |
-| `run_git` | Full git workflow (status, diff, log, add, commit, branch, checkout, stash, etc.) |
+| `run_git` | Full git workflow with pre-push sandbox validation |
 | `run_search` | Regex search across files, respects .gitignore |
 | `run_tree` | Recursive directory tree listing |
 | `run_test` | Run tests and report pass/fail |
 | `run_scaffold` | Quick-create a package directory |
+| `run_sql` | SQLite queries (WAL mode, FAT32-safe) |
+| `run_integrity` | SHA-256 file hashing for verification |
 
 ### 3-Tier Memory System
 - **Tier 1 — Active Context**: What the model sees right now (reconstructed each turn)
@@ -74,8 +76,8 @@ Before every LLM call, J pulls relevant entries from working memory and long-ter
 ### Weight-Triggered Reflection
 When working memory exceeds 32 KB, J automatically asks the model to consolidate entries — compressing N noisy records into a tight set of key decisions, errors, and state. No fixed-interval timer. It fires only when the memory is actually bloated.
 
-### Task Graphs (DAG Execution)
-Steps can declare dependencies (`depends_on`). J builds a DAG, sorts it topologically, and executes steps in valid order. Independent steps within a tier can conceptually run in parallel (serial execution currently, but the graph is ready for it).
+### Task Graphs (DAG Execution) + Parallel Tier Runner
+Steps can declare dependencies (`depends_on`). J builds a DAG, sorts it topologically, and executes steps in valid order. Independent steps within a tier run in parallel via `ThreadPoolExecutor` (3 max workers, thread-safe output, 300s timeout per step).
 
 ### Dual Runtime Backend
 Works with both `llama.cpp` (server mode) and `Ollama` out of the box. Streaming responses in both cases.
@@ -86,48 +88,80 @@ Works with both `llama.cpp` (server mode) and `Ollama` out of the box. Streaming
 ### Session Logging
 Every conversation is logged to `logs/sessions/` as timestamped text files. Runtime events log to structured JSONL with 512 KB rotation and 5-file limit.
 
-### Five Masters Governance
-Code output is evaluated against five heuristic checks (efficiency, error handling, performance, fault tolerance, clarity). Lightweight — no AST parsing yet, but the framework is wired.
+### Five Masters Governance (AST-Powered)
+Code output is evaluated against five quality masters, each implemented as a real `ast.NodeVisitor`:
+- **Turing** — Efficiency: detects nested loops, redundant comparisons
+- **Dijkstra** — Error Handling: catches bare excepts, silent passes, missing guards
+- **Knuth** — Performance: flags quadratic patterns, repeated work
+- **Lamport** — Fault Tolerance: checks for resource leaks, missing timeouts
+- **Hopper** — Clarity: enforces naming, function length, complexity
 
-### Sandbox Mode
+Returns an `Issue` dataclass per finding with severity levels. Heuristic fallback when AST can't parse.
+
+### Multi-File Refactoring Intelligence
+`/refactor` scans the entire project and builds a `ProjectMap` — symbol extraction, import graph, and detection of:
+- Circular imports
+- Unused imports
+- Dead (unreachable) code
+- Shadow variables
+Generates an HTML report (dark-theme, zero dependencies). Includes a rename helper for cross-file symbol renaming.
+
+### Streaming Tool Output
+Shell commands (`run_bash`) stream stdout and stderr line-by-line in real-time via `Popen` with threaded pipe drains and a 64 KB capture cap. No more waiting for long builds to finish before seeing output.
+
+### Circuit Breaker (Self-Healing)
+Prevents stuck loops with graduated response:
+- Repeat tool call detection (3x same call → force new approach)
+- Repeat error detection (3x same error → escalate)
+- Step limit (12 tool calls per step)
+- Total budget (60 tool calls per task)
+When tripped, J receives targeted guidance to try a different strategy instead of repeating.
+
+### Visual / UI Output
+- **Terminal**: `box()`, `progress_bar()`, `task_tree()`, `status_panel()` for rich CLI display
+- **HTML Reports**: Dark-theme, zero-dependency HTML generation for refactoring and analysis results
+- `/report` command generates an HTML project report
+
+### Pre-Push Validation Sandbox
+Every `git push` and `git commit` is automatically gated through a 5-check sandbox:
+1. **Conflict markers** — line-level detection (safe against self-detection)
+2. **Syntax** — `py_compile` every `.py` file
+3. **AST parse** — catches malformed code that compiles but won't run
+4. **Tests** — auto-detects `test_*.py`, pytest, unittest
+5. **Five Masters** — high-severity issues block the push
+
+Use `/sandbox` for manual validation. `--force-push` to override in emergencies.
+
+### Sandbox Mode (Bruce Wayne)
 Type `bruce wayne` to toggle sandbox mode — restricts tool execution to read-only operations.
 
 ---
 
-## What J Cannot Do Yet
+## Current Limitations
 
-These are the gaps between the current build and full cloud-tier parity:
+The framework is feature-complete. These are the remaining boundaries:
 
 ### 1. Language Quality (Model-Dependent)
 The framework is structurally complete, but the *quality of reasoning, code generation, and natural language output* depends on the GGUF model loaded. A 7B-Q5 model will scaffold and edit code reliably. A 14B-Q4 model will handle more complex architecture decisions. Neither will match GPT-4 or Claude 3.5 on nuanced reasoning — that's a model ceiling, not a framework limitation.
 
 **Recommended models (fits 16 GB USB with room for code/logs):**
-| Model | Size | Quality | Speed |
-|-------|------|---------|-------|
-| Qwen2.5-Coder-7B-Q5_K_M | ~5.5 GB | Good for focused tasks | Fast |
-| Qwen2.5-Coder-14B-Q4_K_M | ~8.5 GB | Better reasoning | Moderate |
-| DeepSeek-Coder-V2-Lite-16B-Q4 | ~9 GB | Strong all-round | Moderate |
+| Model | Size | Quality | Speed | Ollama Tag |
+|-------|------|---------|-------|------------|
+| Qwen2.5-Coder-14B-Q4_K_M | ~8.5 GB | Best for code | Moderate | `qwen2.5-coder:14b` |
+| Qwen2.5-Coder-7B-Q5_K_M | ~5.5 GB | Good for focused tasks | Fast | `qwen2.5-coder:7b` |
+| DeepSeek-Coder-V2-Lite-16B-Q4 | ~9 GB | Strong all-round | Moderate | — |
+| Phi-3-medium-14B-Q4_K_M | ~8 GB | Solid reasoning | Moderate | — |
 
-### 2. Parallel Step Execution
-The task graph supports it (tiers of independent steps), but the executor runs them serially. Wiring parallel execution is straightforward but not yet implemented.
+**Top pick**: Qwen2.5-Coder-14B — purpose-built for code generation, strong tool-use compliance, 32K context window.
 
-### 3. Streaming Tool Output
-Shell commands and test runs capture output after completion. Streaming stdout/stderr back to the user in real-time during long builds would improve the experience.
-
-### 4. Web/API Access (Intentionally Missing)
+### 2. Web/API Access (Intentionally Missing)
 J is local-first by design. No HTTP calls, no package installs from PyPI during runtime. If you want J to pull a library, pre-install it on the drive.
 
-### 5. Multi-File Refactoring Intelligence
-J can edit files individually (str_replace, write), but it doesn't yet have AST-level awareness for cross-file rename, extract-method, or dependency graph analysis. It relies on the LLM's reasoning for multi-file coordination.
+### 3. Inference Tool Building (Roadmap)
+J can't yet create new tools on the fly from a description (e.g., "figure out how to make STL files" → auto-generates `stl_planner.py`). The registry supports dynamic loading — this is a future capability.
 
-### 6. Five Masters — Real AST Analysis
-Currently heuristic-based (string matching). A real AST-based evaluator would catch actual antipatterns, cyclomatic complexity, and type issues.
-
-### 7. Self-Healing on Stuck Loops
-If the LLM produces invalid tool calls repeatedly, J will retry but doesn't yet have a hard circuit-breaker or fallback strategy.
-
-### 8. Visual/UI Output
-No rendering. J works in the terminal. If you want it to produce a web page, it writes the HTML — you open it in a browser yourself.
+### 4. Multi-Language Support (Roadmap)
+Tools are Python-focused. The shell tool can run anything, but AST analysis, refactoring, and Five Masters evaluation are Python-only for now.
 
 ---
 
@@ -274,6 +308,9 @@ REQUIRE_GPU=false                  # Set true if you have GPU + CUDA llama.cpp
 | `/mode <level>` | Change autonomy level mid-session |
 | `/memory` | Show recent working memory entries and stats |
 | `/reflect` | Manually trigger memory compression |
+| `/sandbox` | Run the 5-check validation gauntlet on the current project |
+| `/refactor` | Scan project for import issues, dead code, shadows → HTML report |
+| `/report` | Generate a visual HTML project report |
 | `build <name>` | Quick-scaffold a Python package directory |
 | `bruce wayne` | Toggle sandbox mode (read-only tool restriction) |
 | `quit` / `exit` | End the session |
@@ -559,6 +596,20 @@ Args: name
 Side-effect: write
 ```
 
+### run_sql
+Execute SQLite queries. WAL mode, FAT32-safe, parameterized queries.
+```
+Args: db_path, query, [params]
+Side-effect: exec
+```
+
+### run_integrity
+SHA-256 hash of a file for verification and change detection.
+```
+Args: path
+Side-effect: read
+```
+
 ---
 
 ## Troubleshooting
@@ -614,10 +665,10 @@ reconstruct_context()        ← Pull relevant memory (BM25)
 LLM generates response       ← Streaming via llama.cpp or Ollama
      │
      ├── Tool call detected? ──→ Parse → Confirm (if semi) → Execute → Log
-     │                                                           │
-     │                                                           ▼
-     │                                                    Append to messages
-     │                                                    Loop back to LLM
+     │                                    │                        │
+     │                                    ▼                        ▼
+     │                             Circuit breaker          Append to messages
+     │                             (3x repeat = redirect)   Loop back to LLM
      │
      ▼
 compress_turn()              ← Heuristic summary → working_memory.jsonl
@@ -644,15 +695,18 @@ parse_plan()                 ← Extracts steps with depends_on
 topo_tiers()                 ← Kahn's algorithm → execution tiers
      │
      ▼
-for each tier:
-  for each ready step:
+for each tier (parallel):
+  ThreadPoolExecutor(3)      ← Independent steps run concurrently
     build_step_prompt()      ← Focus LLM on one step
     LLM responds
     extract tool calls
-    execute via registry
+    execute via registry     ← Circuit breaker monitors each call
     build_verify_prompt()    ← Ask: did it pass criteria?
     parse_verdict()
     checkpoint (task_store)
+     │
+     ▼
+sandbox_validate()           ← 5-check gauntlet before push
 ```
 
 ### File Layout
@@ -676,28 +730,36 @@ sovereign-shards/
 │   └── agent/
 │       ├── __init__.py
 │       ├── contracts.py            # AgentStep, ToolCall, ToolResult, AgentTask
+│       ├── circuit_breaker.py      # Stuck-loop detection + graduated response
 │       ├── context.py              # trim_context, reconstruct_context
 │       ├── executor.py             # Tool execution engine
 │       ├── graph.py                # DAG task graph (Kahn's topo-sort)
 │       ├── indexer.py              # Project directory indexer
 │       ├── memory.py               # Tier 3: long-term key-value memory
+│       ├── parallel.py             # ThreadPoolExecutor tier runner
 │       ├── planner.py              # LLM → AgentStep[] with dependencies
+│       ├── refactor.py             # Multi-file AST analysis + import graph
 │       ├── reflection.py           # Weight-triggered memory compression
 │       ├── retriever.py            # BM25 scorer (pure Python)
+│       ├── sandbox.py              # Pre-push 5-check validation gauntlet
+│       ├── streaming.py            # Real-time line-by-line tool output
 │       ├── task_store.py           # Checkpoint/resume for agent tasks
 │       ├── tool_registry.py        # Auto-discovery + schema validation
 │       ├── verifier.py             # Step success/fail verdict parser
+│       ├── visual.py               # Terminal + HTML report rendering
 │       └── working_memory.py       # Tier 2: rolling JSONL summaries
 ├── core/
 │   └── fivemasters.py              # Code quality heuristics
 ├── tools/run/
 │   ├── registry.json               # Tool definitions (auto-loaded)
-│   ├── bash.py, exec.py, git.py    # Execution tools
+│   ├── bash.py, exec.py, git.py    # Execution tools (bash streams live)
 │   ├── read.py, write.py           # File I/O tools
 │   ├── str_replace.py              # Surgical edit tool
 │   ├── search.py, tree.py          # Discovery tools
 │   ├── test.py                     # Test runner
-│   └── scaffold.py                 # Package scaffolder
+│   ├── scaffold.py                 # Package scaffolder
+│   ├── sql.py                      # SQLite (WAL mode, FAT32-safe)
+│   └── integrity.py                # SHA-256 file hashing
 ├── prompts/
 │   ├── J-system.txt                # System persona
 │   └── J-chat-template.jinja       # Chat format template
