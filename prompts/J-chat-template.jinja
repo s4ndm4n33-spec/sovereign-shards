@@ -1,16 +1,18 @@
 {% for message in messages %}
-    {% if message['role'] == 'user' %}
-<|user|>
+    {% if message['role'] == 'system' %}
+<|im_start|>system
 {{ message['content'] }}
-<|end|>
-
-    {% elif message['role'] == 'J' %}
-<|J|>
+<|im_end|>
+    {% elif message['role'] == 'user' %}
+<|im_start|>user
 {{ message['content'] }}
-<|end|>
-
+<|im_end|>
+    {% elif message['role'] in ['assistant', 'J'] %}
+<|im_start|>assistant
+{{ message['content'] }}
+<|im_end|>
     {% endif %}
 {% endfor %}
 {% if add_generation_prompt %}
-<|J|>
+<|im_start|>assistant
 {% endif %}

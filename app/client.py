@@ -62,10 +62,10 @@ def create_client() -> RuntimeConfig:
     backend = os.getenv("RUNTIME_BACKEND", "llama_cpp").strip().lower()
     host = os.getenv("LLAMA_HOST", "127.0.0.1").strip()
     port = int(os.getenv("LLAMA_PORT", "8080"))
-    model = os.getenv("LLAMA_MODEL_ALIAS", os.getenv("OLLAMA_MODEL", "J")).strip()
-    num_predict = int(os.getenv("OLLAMA_NUM_PREDICT", "256"))
-    num_ctx = int(os.getenv("OLLAMA_NUM_CTX", "1024"))
-    num_thread = int(os.getenv("OLLAMA_NUM_THREAD", "2"))
+    model = os.getenv("LLAMA_MODEL_ALIAS", os.getenv("OLLAMA_MODEL", "qwen2.5-coder-14b")).strip()
+    num_predict = int(os.getenv("OLLAMA_NUM_PREDICT", "1024"))
+    num_ctx = int(os.getenv("OLLAMA_NUM_CTX", "4096"))
+    num_thread = int(os.getenv("OLLAMA_NUM_THREAD", "4"))
     temperature = float(os.getenv("OLLAMA_TEMPERATURE", "0.1"))
     top_p = float(os.getenv("LLAMA_TOP_P", "0.85"))
     top_k = int(os.getenv("LLAMA_TOP_K", "20"))
@@ -88,14 +88,14 @@ def create_client() -> RuntimeConfig:
         token.strip()
         for token in os.getenv(
             "LLAMA_STOP_TOKENS",
-            "<|end|>",
+            "<|im_end|>,<|im_start|>",
         ).split(",")
         if token.strip()
     )
 
     model_path = _resolve_path(
         os.getenv("LLAMA_MODEL_PATH", ""),
-        Path("models") / "J.gguf",
+        Path("models") / "qwen2.5-coder-14b-instruct-q4_k_m.gguf",
     )
     server_binary = _resolve_path(
         os.getenv("LLAMA_SERVER_BINARY", ""),

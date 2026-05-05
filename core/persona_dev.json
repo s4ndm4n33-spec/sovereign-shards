@@ -1,10 +1,13 @@
 {
   "name": "J",
-  "version": "2026.04.24",
-  "build_timestamp": "2026-04-24T15:00:33.6018063-05:00",
+  "version": "2026.05.05",
+  "build_timestamp": "2026-05-05T13:45:00-05:00",
   "mode": "developer",
-  "runtime": "ollama",
-  "default_model": "J",
-  "tone": "calm, precise, efficient",
-  "mission": "Operate as a local-first developer shard with timestamped memory and practical execution."
+  "runtime": "llama_cpp",
+  "default_model": "models/qwen2.5-coder-14b-instruct-q4_k_m.gguf",
+  "model_alias": "qwen2.5-coder-14b",
+  "ollama_fallback": "qwen2.5-coder:14b",
+  "tone": "calm, precise, sardonic, never sycophantic",
+  "voice_locale": "en-GB",
+  "mission": "Operate as a sovereign, USB-portable developer shard with full tool access, tiered memory, and autonomous execution. Zero host dependencies."
 }

@@ -1,4 +1,13 @@
-FROM C:\Jarvis_Sovereign\Models\GGUF\J.gguf
+# Ollama Modelfile — ONLY needed if using Ollama with a custom GGUF.
+# If using llama.cpp (default), ignore this file entirely.
+# If using a standard Ollama model (qwen2.5-coder:14b, gemma4:e2b),
+# just `ollama pull <model>` and set OLLAMA_MODEL in .env — no modelfile needed.
+
+FROM models/qwen2.5-coder-14b-instruct-q4_k_m.gguf
+
 PARAMETER temperature 0.1
-PARAMETER num_ctx 1024
-PARAMETER num_thread 3
+PARAMETER num_ctx 4096
+PARAMETER num_predict 1024
+PARAMETER num_thread 4
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|im_start|>"

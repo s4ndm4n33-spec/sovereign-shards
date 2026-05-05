@@ -52,18 +52,9 @@ PROMPTS_DIR = BASE_DIR / "prompts"
 SYSTEM_PROMPT = (PROMPTS_DIR / "J-system.txt").read_text(encoding="utf-8")
 
 BASE_TOOL_INSTRUCTIONS = (
-    "\n\n[Tool Usage]\n"
-    "You may use a local tool when you need to inspect or modify the repository. "
-    "When a tool is required, respond with exactly the following format:\n"
-    "ACTION:\n"
-    '{"tool": "<tool_name>", "args": [arg1, arg2, ...]}\n'
-    "Only use these tools when they are necessary. If no tool is needed, answer directly.\n"
-    "Available tools:\n"
-    "- read_file(path)\n"
-    "- write_file(path, content)\n"
-    "- list_dir(path)\n"
-    "- system_snapshot()\n"
-    "All paths are relative to the shard root unless an absolute path is provided."
+    "\n\n[Available Tools]\n"
+    "You have the following tools. Use them whenever a task involves files, "
+    "code, git, or the system. Do NOT tell the user to do it themselves.\n"
 )
 
 
@@ -71,11 +62,11 @@ BASE_TOOL_INSTRUCTIONS = (
 
 
 def _assistant_role(client: RuntimeConfig) -> str:
-    return "J" if client.backend == "llama_cpp" else "assistant"
+    return "assistant"
 
 
 def _system_role(client: RuntimeConfig) -> str:
-    return "J" if client.backend == "llama_cpp" else "system"
+    return "system"
 
 
 def _build_tool_instructions(registry: ToolRegistry) -> str:
@@ -547,7 +538,7 @@ def run_chat(
         print(f"Backend: {client.backend}")
         print(f"Model:   {client.model}")
         print(f"Mode:    {autonomy_mode}")
-        print("Commands: quit, exit, /snapshot, /help, /tools, /plan <goal>, /index, /memory, /reflect, /integrity, /refactor, /report, /sandbox")
+        print("Commands: quit, exit, /help, /tools, /plan, /model, /mode, /memory, /snapshot, /sandbox, /refactor, /report")
         if client.backend == "llama_cpp":
             print(f"Server log: {local_server.log_path}")
 
@@ -576,6 +567,7 @@ def run_chat(
                     "  /plan <goal>     — enter agent mode (plan → execute → verify)\n"
                     "  /index           — index the project directory\n"
                     "  /mode <level>    — change autonomy (manual/semi/auto-safe/auto-full)\n"
+                    "  /model <name>    — hot-swap the model (e.g. /model gemma4:e2b)\n"
                     "  /memory          — show recent working memory entries\n"
                     "  /reflect         — manually compress working memory\n"
                     "  /integrity       — check file integrity against baseline\n"
@@ -613,6 +605,30 @@ def run_chat(
                     rlog.event("mode_change", mode=autonomy_mode)
                 else:
                     print("[MODE ERROR] Valid modes: manual, semi, auto-safe, auto-full")
+                continue
+
+            if user_message.startswith("/model "):
+                new_model = user_message[7:].strip()
+                if new_model:
+                    # Rebuild client with new model name
+                    import os
+                    os.environ["LLAMA_MODEL_ALIAS"] = new_model
+                    os.environ["OLLAMA_MODEL"] = new_model
+                    client = create_client()
+                    messages = build_history(client, registry, _format_hardware_context())
+                    print(f"[MODEL] Switched to: {new_model}")
+                    print(f"  Backend: {client.backend}")
+                    print(f"  Context: {client.num_ctx} tokens")
+                    print("  Note: conversation history reset. Memory persists.")
+                    rlog.event("model_swap", model=new_model)
+                else:
+                    print(f"[MODEL] Current: {client.model}")
+                    print("Usage: /model <name>  (e.g. /model gemma4:e2b)")
+                continue
+
+            if user_message == "/model":
+                print(f"[MODEL] Current: {client.model}")
+                print("Usage: /model <name>  (e.g. /model qwen2.5-coder:14b, /model gemma4:e2b)")
                 continue
 
             if user_message == "/memory":
