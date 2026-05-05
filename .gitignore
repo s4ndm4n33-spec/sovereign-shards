@@ -1,32 +1,34 @@
-.env
-.venv/
+# Python
 __pycache__/
-*.pyc
-*.pyd
-*.dll
-*.zip
-logs/sessions/
-logs/server/
-model-server/
-models/
-Lib/
-Scripts/
-site-packages/
-python/
-python_certs/
-python.exe
-pythonw.exe
-python3.dll
-python310.dll
-python310.zip
-python310._pth
-python.cat
-get-pip.py
-libcrypto-1_1.dll
-libffi-7.dll
-libssl-1_1.dll
-sqlite3.dll
-vcruntime140.dll
-vcruntime140_1.dll
-LICENSE.txt
-tinyllama.gguf
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+
+# Models (too large for git)
+models/*.gguf
+models/*.bin
+
+# Logs (local only)
+logs/
+*.log
+
+# Environment
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temp
+*.tmp
+*.bak
