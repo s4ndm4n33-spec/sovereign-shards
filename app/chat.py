@@ -28,6 +28,7 @@ from app.agent.parallel import StepOutcome, run_tier_parallel, safe_print
 from app.agent.circuit_breaker import CircuitBreaker
 from app.agent.planner import build_plan_prompt, parse_plan
 from app.agent.refactor import scan_project
+from app.agent.sandbox import validate_before_push
 from app.agent.reflection import should_reflect, build_reflect_prompt, parse_reflected, apply_reflection
 from app.agent.streaming import stream_subprocess
 from app.agent.task_store import save_task, load_task
@@ -546,7 +547,7 @@ def run_chat(
         print(f"Backend: {client.backend}")
         print(f"Model:   {client.model}")
         print(f"Mode:    {autonomy_mode}")
-        print("Commands: quit, exit, /snapshot, /help, /tools, /plan <goal>, /index, /memory, /reflect, /integrity, /refactor, /report")
+        print("Commands: quit, exit, /snapshot, /help, /tools, /plan <goal>, /index, /memory, /reflect, /integrity, /refactor, /report, /sandbox")
         if client.backend == "llama_cpp":
             print(f"Server log: {local_server.log_path}")
 
@@ -580,6 +581,7 @@ def run_chat(
                     "  /integrity       — check file integrity against baseline\n"
                     "  /refactor        — cross-file AST analysis (dead code, circles, shadows)\n"
                     "  /report          — generate HTML task report (opens in browser)\n"
+                    "  /sandbox         — run pre-push validation (syntax, parse, tests, quality)\n"
                     "  build <name>     — quick-scaffold a package\n"
                     "  bruce wayne      — toggle sandbox"
                 )
@@ -653,6 +655,19 @@ def run_chat(
                 result = registry.execute("run_integrity", ["--baseline"])
                 print(result)
                 rlog.event("integrity_baseline")
+                continue
+
+            if user_message == "/sandbox":
+                print("\n[SANDBOX] Running full pre-push validation...\n")
+                try:
+                    report = validate_before_push(
+                        project_dir=str(Path.cwd()),
+                        copy_to_temp=True,
+                    )
+                    print(report.summary())
+                except Exception as exc:
+                    print(f"[SANDBOX ERROR] {exc}")
+                rlog.event("sandbox_validation")
                 continue
 
             if user_message == "/refactor":

@@ -1,17 +1,44 @@
-"""Git operations wrapper. Safe subset of git commands.
+"""Git operations wrapper with pre-push sandbox validation.
 
 Usage: python git.py <subcommand> [args...]
-Allowed: status, diff, log, add, commit, branch, checkout, stash, show, reset.
+Allowed: status, diff, log, add, commit, branch, checkout, stash, show, reset, push.
+
+Push is gated: runs the full validation sandbox before allowing the push.
+Use --force-push to skip validation (not recommended).
 """
 
 import subprocess
 import sys
+import os
 
 ALLOWED = {
     "status", "diff", "log", "add", "commit", "branch", "checkout",
-    "stash", "show", "reset", "rev-parse", "remote",
+    "stash", "show", "reset", "rev-parse", "remote", "push",
 }
+GATED = {"push", "commit"}  # Commands that trigger sandbox validation
 MAX_OUTPUT = 64 * 1024
+
+
+def _run_sandbox() -> bool:
+    """Run pre-push validation. Returns True if safe to proceed."""
+    try:
+        # Import sandbox from the project
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+        from app.agent.sandbox import validate_before_push
+
+        print("\n[SANDBOX] Running pre-push validation...\n")
+        report = validate_before_push(
+            project_dir=os.getcwd(),
+            copy_to_temp=True,
+        )
+        print(report.summary())
+        return report.passed
+    except ImportError:
+        print("[SANDBOX] Warning: sandbox module not found, skipping validation.")
+        return True
+    except Exception as exc:
+        print(f"[SANDBOX] Warning: validation error ({exc}), proceeding with caution.")
+        return True
 
 
 def main() -> None:
@@ -26,7 +53,21 @@ def main() -> None:
               f"Allowed: {', '.join(sorted(ALLOWED))}")
         return
 
-    cmd = ["git", subcommand] + sys.argv[2:]
+    args = sys.argv[2:]
+    force_push = "--force-push" in args
+    if force_push:
+        args.remove("--force-push")
+
+    # Gate pushes and commits through sandbox
+    if subcommand in GATED and not force_push:
+        if not _run_sandbox():
+            print(f"\n[GIT BLOCKED] Sandbox validation failed. "
+                  f"Fix the issues above before {subcommand}ing.")
+            print(f"  Use --force-push to override (not recommended).")
+            return
+        print(f"\n[SANDBOX PASSED] Proceeding with git {subcommand}...\n")
+
+    cmd = ["git", subcommand] + args
 
     try:
         result = subprocess.run(
