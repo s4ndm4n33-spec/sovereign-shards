@@ -1,7 +1,7 @@
 # J — User Manual
 
 > Production guide for the Sovereign Shards developer agent.
-> Version: `dev-agent` · Last updated: 2026-05-05
+> Version: `1.0` · Last updated: 2026-05-05
 
 ---
 
