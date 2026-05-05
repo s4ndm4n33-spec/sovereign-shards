@@ -1,11 +1,15 @@
-"""Sandboxed shell command execution with timeout and output cap.
+"""Sandboxed shell command execution with streaming output.
 
 Usage: echo '<command>' | python bash.py [timeout_seconds]
 Default timeout: 30s. Max output: 64 KB.
+
+Output streams line-by-line in real time so the operator sees
+progress during long builds, installs, and test runs.
 """
 
 import subprocess
 import sys
+import threading
 
 MAX_OUTPUT = 64 * 1024  # 64 KB output cap
 DEFAULT_TIMEOUT = 30
@@ -24,33 +28,64 @@ def main() -> None:
         except ValueError:
             pass
 
+    # Stream output in real time
+    captured: list[str] = []
+    total_bytes = 0
+    truncated = False
+
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             command,
             shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Merge stderr into stdout
             text=True,
-            capture_output=True,
-            timeout=timeout,
+            bufsize=1,
         )
-    except subprocess.TimeoutExpired:
-        print(f"[BASH ERROR] Command timed out after {timeout}s: {command[:120]}")
-        return
     except Exception as exc:
         print(f"[BASH ERROR] {exc}")
         return
 
-    output = (result.stdout or "") + (result.stderr or "")
-    output = output.strip()
+    def _drain() -> None:
+        nonlocal total_bytes, truncated
+        try:
+            for line in iter(proc.stdout.readline, ""):
+                if truncated:
+                    break
+                total_bytes += len(line)
+                if total_bytes > MAX_OUTPUT:
+                    truncated = True
+                    captured.append(f"\n... [TRUNCATED at {MAX_OUTPUT} bytes]")
+                    break
+                captured.append(line)
+                sys.stdout.write(f"  │ {line}")
+                sys.stdout.flush()
+        except (ValueError, OSError):
+            pass
+        finally:
+            try:
+                proc.stdout.close()
+            except Exception:
+                pass
 
-    if len(output) > MAX_OUTPUT:
-        output = output[:MAX_OUTPUT] + f"\n... [TRUNCATED at {MAX_OUTPUT} bytes]"
+    drain_thread = threading.Thread(target=_drain, daemon=True)
+    drain_thread.start()
 
-    if output:
-        print(output)
-    if result.returncode != 0:
-        print(f"[exit code {result.returncode}]")
-    elif not output:
-        print("[BASH OK] Command completed with no output.")
+    timed_out = False
+    try:
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=5)
+        timed_out = True
+
+    drain_thread.join(timeout=5)
+
+    if timed_out:
+        print(f"\n[BASH ERROR] Command timed out after {timeout}s: {command[:120]}")
+
+    if proc.returncode and proc.returncode != 0 and not timed_out:
+        print(f"\n[EXIT {proc.returncode}]")
 
 
 if __name__ == "__main__":

@@ -25,10 +25,14 @@ from app.agent.executor import (
 )
 from app.agent.graph import ready_steps, format_graph, topo_tiers
 from app.agent.parallel import StepOutcome, run_tier_parallel, safe_print
+from app.agent.circuit_breaker import CircuitBreaker
 from app.agent.planner import build_plan_prompt, parse_plan
+from app.agent.refactor import scan_project
 from app.agent.reflection import should_reflect, build_reflect_prompt, parse_reflected, apply_reflection
+from app.agent.streaming import stream_subprocess
 from app.agent.task_store import save_task, load_task
 from app.agent.verifier import build_verify_prompt, parse_verdict
+from app.agent.visual import status_panel, task_tree, generate_task_report
 from app.client import RuntimeConfig, create_client
 from app.errors import TransportError
 from app.file_tools import list_dir, read_file, write_file
@@ -274,13 +278,34 @@ def _run_turn(
     logger.append("assistant", reply)
     rlog.event("stage_start", stage="tool_loop")
 
-    # Bounded tool loop
+    # Bounded tool loop with circuit breaker
+    breaker = CircuitBreaker()
     for hop in range(MAX_TOOL_HOPS):
         action = _extract_action(reply)
         if action is None:
             break
 
         tool_name = action.get("tool", "")
+        tool_args = str(action.get("args", []))
+
+        # Circuit breaker check (before executing)
+        trip = breaker.check()
+        if trip is not None:
+            print(f"\n⚡ {trip.recovery_prompt}")
+            rlog.event("circuit_breaker", reason=trip.reason, trips=trip.trip_count)
+            if trip.should_force_skip:
+                reply = f"[STOPPED] Circuit breaker forced skip: {trip.reason}"
+                messages.append({"role": assistant_role, "content": reply})
+                logger.append("system", reply)
+                break
+            # Inject recovery prompt and let the model try a different approach
+            messages.append({"role": "user", "content": trip.recovery_prompt})
+            logger.append("system", trip.recovery_prompt)
+            reply = _stream_reply(client, messages)
+            print()
+            messages.append({"role": assistant_role, "content": reply})
+            logger.append("assistant", reply)
+            continue
 
         # Autonomy gate
         if needs_confirmation(tool_name, registry, autonomy_mode):
@@ -297,6 +322,8 @@ def _run_turn(
 
         rlog.event("tool_call", tool=tool_name, hop=hop)
         tool_result = _execute_tool(action, registry)
+        is_error = tool_result.startswith("[TOOL ERROR]")
+        breaker.record_turn(tool=tool_name, args=tool_args, output=tool_result, is_error=is_error)
         time.sleep(PROCESS_PAUSE_SECONDS)
 
         tool_response = (
@@ -367,6 +394,13 @@ def _run_agent_task(
 
     print(f"\n[PLAN] {len(task.steps)} step(s):")
     print(format_graph(task.steps, set(task.completed_step_ids)))
+
+    # Visual task tree
+    step_dicts = [
+        {"id": s.id, "goal": s.goal, "depends_on": list(s.depends_on)}
+        for s in task.steps
+    ]
+    print(f"\n{task_tree(step_dicts, set(task.completed_step_ids))}")
 
     # 2. Build topological tiers for parallel execution
     tiers = topo_tiers(task.steps)
@@ -442,8 +476,27 @@ def _run_agent_task(
     total = len(task.steps)
     summary = f"\n[AGENT COMPLETE] {done}/{total} steps done. Task: {task_id}"
     print(summary)
+    print(status_panel(task.objective[:50], done, total))
     rlog.event("agent_complete", done=done, total=total, task_id=task_id)
     logger.append("system", summary)
+
+    # Auto-generate HTML report
+    try:
+        step_dicts = [
+            {"id": s.id, "goal": s.goal, "result": ""}
+            for s in task.steps
+        ]
+        report_path = generate_task_report(
+            task_name=task.objective[:60],
+            steps=step_dicts,
+            completed=completed,
+            stats={"task_id": task_id, "steps_done": done,
+                   "steps_total": total},
+        )
+        print(f"[REPORT] HTML report: {report_path}")
+    except Exception:
+        pass  # Non-critical — don't fail the task over a report
+
     return summary
 
 
@@ -493,7 +546,7 @@ def run_chat(
         print(f"Backend: {client.backend}")
         print(f"Model:   {client.model}")
         print(f"Mode:    {autonomy_mode}")
-        print("Commands: quit, exit, /snapshot, /help, /tools, /plan <goal>, /index, /memory, /reflect, /integrity")
+        print("Commands: quit, exit, /snapshot, /help, /tools, /plan <goal>, /index, /memory, /reflect, /integrity, /refactor, /report")
         if client.backend == "llama_cpp":
             print(f"Server log: {local_server.log_path}")
 
@@ -525,6 +578,8 @@ def run_chat(
                     "  /memory          — show recent working memory entries\n"
                     "  /reflect         — manually compress working memory\n"
                     "  /integrity       — check file integrity against baseline\n"
+                    "  /refactor        — cross-file AST analysis (dead code, circles, shadows)\n"
+                    "  /report          — generate HTML task report (opens in browser)\n"
                     "  build <name>     — quick-scaffold a package\n"
                     "  bruce wayne      — toggle sandbox"
                 )
@@ -598,6 +653,41 @@ def run_chat(
                 result = registry.execute("run_integrity", ["--baseline"])
                 print(result)
                 rlog.event("integrity_baseline")
+                continue
+
+            if user_message == "/refactor":
+                print("\n[REFACTOR] Scanning project for cross-file issues...")
+                try:
+                    pmap = scan_project(str(Path.cwd()))
+                    print(pmap.summary())
+                    if pmap.issues:
+                        from app.agent.visual import generate_refactor_report
+                        issues_data = [
+                            {"kind": i.kind, "file": i.file, "line": i.line,
+                             "message": i.message, "severity": i.severity}
+                            for i in pmap.issues
+                        ]
+                        path = generate_refactor_report(pmap.summary(), issues_data)
+                        print(f"\n[REPORT] HTML report saved: {path}")
+                except Exception as exc:
+                    print(f"[REFACTOR ERROR] {exc}")
+                rlog.event("refactor_scan")
+                continue
+
+            if user_message == "/report":
+                print("\n[REPORT] Generating HTML task report...")
+                try:
+                    report_path = generate_task_report(
+                        task_name="Session Report",
+                        steps=[],
+                        completed=set(),
+                        stats={"session": logger.session_id,
+                               "turns": len(messages)},
+                    )
+                    print(f"[REPORT] Saved: {report_path}")
+                except Exception as exc:
+                    print(f"[REPORT ERROR] {exc}")
+                rlog.event("report_generated")
                 continue
 
             if user_message.startswith("/plan "):
