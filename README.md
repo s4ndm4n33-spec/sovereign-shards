@@ -35,7 +35,7 @@ Think of it as **Codex or Claude Code, but it runs off a Kingston USB stick** in
 | Feature | Description |
 |---------|-------------|
 | 🧠 **Plan → Execute → Verify** | DAG-based task planner with dependency resolution, parallel execution, and automatic verification |
-| 🔧 **14 Built-In Dev Tools** | File editing, bash, git, search, tree, test, SQL, integrity hashing — all auto-discovered |
+| 🔧 **14+ Built-In Dev Tools** | File editing, bash, git, search, tree, test, SQL, integrity hashing — all auto-discovered |
 | 💾 **3-Tier Memory System** | Active context reconstruction + rolling working memory + persistent long-term memory with BM25 retrieval |
 | 🔍 **AST Code Intelligence** | Multi-file refactoring analysis — dead code, circular imports, unused imports, symbol shadows, rename helpers |
 | ⚡ **Parallel Execution** | Thread-pool tier runner for independent task steps — respects dependency order, runs the rest concurrently |
@@ -44,6 +44,8 @@ Think of it as **Codex or Claude Code, but it runs off a Kingston USB stick** in
 | 🏛️ **Five Masters Code Review** | AST-powered analysis inspired by Korotkevich, Torvalds, Carmack, Hamilton, and Ritchie |
 | 🧪 **Pre-Push Sandbox** | Copies project to temp dir, runs a 5-check validation gauntlet — nothing broken leaves the drive |
 | 📊 **Visual Reports** | Terminal-native progress bars, task trees, and standalone HTML reports (dark theme, zero deps) |
+| 🔨 **Inference Tool Forge** | "Build a tool for X" → J researches the domain, generates code, validates in sandbox, and hot-registers the new tool — mid-session, no restart |
+| 🧪 **127-Test Suite** | Full `unittest` coverage: memory, retriever, planner, executor, sandbox, forge, circuit breaker — runs anywhere with zero test deps |
 | 🔒 **Fully Offline** | Zero network calls. Zero telemetry. Your code never leaves your machine |
 
 ---
@@ -88,7 +90,7 @@ sovereign-shards/
 │   ├── session.py             # Session transcript management
 │   ├── system_tools.py        # Hardware identity + USB detection
 │   └── agent/
-│       ├── planner.py         # LLM-driven task decomposition
+│       ├── planner.py         # LLM-driven task decomposition + forge gate
 │       ├── executor.py        # Tool dispatch + result capture
 │       ├── verifier.py        # Outcome validation
 │       ├── graph.py           # Kahn's algorithm DAG execution
@@ -106,10 +108,14 @@ sovereign-shards/
 │       ├── circuit_breaker.py # Stuck-loop detection + recovery
 │       ├── visual.py          # Terminal UI + HTML report generation
 │       ├── sandbox.py         # Pre-push validation sandbox
-│       └── tool_registry.py   # Auto-discovery + schema extraction
+│       ├── tool_registry.py   # Auto-discovery + schema extraction
+│       ├── tool_researcher.py # Intent detection + domain decomposition
+│       ├── tool_forge.py      # Code gen + sandbox validation + hot-register
+│       └── tool_template.py   # Canonical tool contract reference
 ├── core/
 │   └── fivemasters.py         # AST code quality (5 analysis masters)
-├── tools/run/                 # 10 auto-discovered tool scripts
+├── tests/                     # 127-test suite (unittest, zero deps)
+├── tools/run/                 # 10+ auto-discovered tool scripts
 │   ├── str_replace.py         # Surgical file editing
 │   ├── bash.py                # Streaming shell execution
 │   ├── git.py                 # Git ops (sandbox-gated push)
@@ -221,18 +227,19 @@ That's it. Two packages. Everything else is Python standard library.
 ## 📊 Project Stats
 
 ```
-44 Python files  ·  5,230 lines of code  ·  2 dependencies  ·  14 tools
-Zero network calls  ·  Zero telemetry  ·  100% local
+61 Python files  ·  7,096 lines of code  ·  2 dependencies  ·  14+ tools (more forged at runtime)
+127 tests  ·  Zero network calls  ·  Zero telemetry  ·  100% local
 ```
 
 ---
 
 ## 🗺️ Roadmap
 
-- [ ] **Inference Tool Building** — "Figure out how to make STL files" → J creates `stl_planner.py` + `forge.py` automatically
-- [ ] **Plugin System** — Drop new tools into `tools/run/` and they auto-register
+- [x] ~~**Inference Tool Forge**~~ — "Figure out how to make STL files" → J researches the domain, generates tool code, validates in sandbox, and hot-registers — *shipped*
+- [x] ~~**Test Suite**~~ — 127 tests covering all subsystems — *shipped*
+- [ ] **Workflow Abstraction** — Extract reusable `Workflow` class from forge + task pipelines
 - [ ] **Multi-Language Support** — Extend beyond Python (JS, Rust, Go)
-- [ ] **Voice Interface** — Local speech-to-text for hands-free coding
+- [ ] **Voice Interface** — Local speech-to-text for hands-free coding (British English)
 
 ---
 

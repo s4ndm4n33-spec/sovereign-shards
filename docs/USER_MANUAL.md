@@ -1,7 +1,7 @@
 # J — User Manual
 
 > Production guide for the Sovereign Shards developer agent.
-> Version: `1.1` · Last updated: 2026-05-05
+> Version: `1.2` · Last updated: 2026-05-05
 
 ---
 
@@ -49,7 +49,7 @@ The framework is complete. The raw language quality — how well J writes code, 
 - Checkpoint progress so interrupted tasks can resume
 - Walk task DAGs respecting step dependencies (not just linear lists)
 
-### Developer Tools (14 Total)
+### Developer Tools (14+ Built-In, More Forged at Runtime)
 | Tool | What It Does |
 |------|-------------|
 | `run_read` | Read any UTF-8 file |
@@ -132,6 +132,39 @@ Every `git push` and `git commit` is automatically gated through a 5-check sandb
 
 Use `/sandbox` for manual validation. `--force-push` to override in emergencies.
 
+### Inference Tool Forge
+J can build its own tools at runtime. When the planner detects a capability gap:
+1. **Researcher** decomposes the domain and outputs a structured `ToolSpec`
+2. **Forge** prompts the model for a `run()` implementation, wraps it in the canonical template
+3. **Sandbox validates**: py_compile → AST parse → has `run()` → dry run with synthetic args
+4. **Circuit breaker**: if validation fails, the error is fed back to the model (up to 3 retries)
+5. **Atomic placement** to `tools/run/`, hot-registration, system prompt rebuilt
+6. **Logged** to `logs/tool_forge.jsonl` with timestamps, attempts, and outcomes
+
+New tools are available immediately — no restart required.
+
+### Test Suite (127 Tests)
+The project ships with a comprehensive `unittest` test suite covering all core subsystems:
+
+```
+tests/
+├── conftest.py               # Environment setup (mocks optional deps)
+├── test_memory.py            # Tier 2 + 3 memory (remember, recall, prune, compress)
+├── test_retriever.py         # BM25 tokenize, scoring, retrieval ranking
+├── test_graph.py             # DAG topo-sort, parallel tiers, cycle detection
+├── test_planner.py           # Plan parsing, fallbacks, mode preservation
+├── test_executor.py          # Tool execution, confirmation gating, result formatting
+├── test_circuit_breaker.py   # Repeat detection, step limits, force-skip
+├── test_context.py           # Token estimation, trimming, summary injection
+├── test_contracts.py         # Frozen dataclasses, defaults
+├── test_reflection.py        # Compression prompts, JSON parsing
+├── test_sandbox.py           # Syntax, AST, conflict markers, full gauntlet
+├── test_forge.py             # Researcher + forge: detection, specs, validation, logging
+└── test_registry.py          # Tool discovery, builtin registration, script execution
+```
+
+Run with: `python -m unittest discover -s tests -v`
+
 ### Sandbox Mode (Bruce Wayne)
 Type `bruce wayne` to toggle sandbox mode — restricts tool execution to read-only operations.
 
@@ -157,8 +190,14 @@ The framework is structurally complete, but the *quality of reasoning, code gene
 ### 2. Web/API Access (Intentionally Missing)
 J is local-first by design. No HTTP calls, no package installs from PyPI during runtime. If you want J to pull a library, pre-install it on the drive.
 
-### 3. Inference Tool Building (Roadmap)
-J can't yet create new tools on the fly from a description (e.g., "figure out how to make STL files" → auto-generates `stl_planner.py`). The registry supports dynamic loading — this is a future capability.
+### 3. ~~Inference Tool Building~~ ✅ Shipped
+J *can* create new tools on the fly. Say "build a tool for making STL files" and the forge pipeline:
+1. Detects the intent (regex triggers + heuristic gap detection)
+2. Researches the domain (BM25 local scan + model decomposition → structured `ToolSpec`)
+3. Generates the code (model fills `run()` within enforced template)
+4. Validates in sandbox (py_compile → AST → has `run()` → dry run; circuit breaker: 3 retries)
+5. Places the file atomically to `tools/run/`, hot-registers, rebuilds system prompt
+All logged to `logs/tool_forge.jsonl`.
 
 ### 4. Multi-Language Support (Roadmap)
 Tools are Python-focused. The shell tool can run anything, but AST analysis, refactoring, and Five Masters evaluation are Python-only for now.
@@ -745,6 +784,9 @@ sovereign-shards/
 │       ├── streaming.py            # Real-time line-by-line tool output
 │       ├── task_store.py           # Checkpoint/resume for agent tasks
 │       ├── tool_registry.py        # Auto-discovery + schema validation
+│       ├── tool_researcher.py      # Intent detection + domain decomposition → ToolSpec
+│       ├── tool_forge.py           # Code gen + sandbox validation + hot-register
+│       ├── tool_template.py        # Canonical tool contract reference
 │       ├── verifier.py             # Step success/fail verdict parser
 │       ├── visual.py               # Terminal + HTML report rendering
 │       └── working_memory.py       # Tier 2: rolling JSONL summaries
@@ -763,6 +805,20 @@ sovereign-shards/
 ├── prompts/
 │   ├── J-system.txt                # System persona
 │   └── J-chat-template.jinja       # Chat format template
+├── tests/                          # 127-test unittest suite
+│   ├── conftest.py                 # Env setup + optional dep mocks
+│   ├── test_memory.py              # Tier 2 + 3 memory tests
+│   ├── test_retriever.py           # BM25 tests
+│   ├── test_graph.py               # DAG tests
+│   ├── test_planner.py             # Plan parsing tests
+│   ├── test_executor.py            # Tool execution tests
+│   ├── test_circuit_breaker.py     # Stuck-loop detection tests
+│   ├── test_context.py             # Context trimming tests
+│   ├── test_contracts.py           # Dataclass tests
+│   ├── test_reflection.py          # Compression tests
+│   ├── test_sandbox.py             # Validation gauntlet tests
+│   ├── test_forge.py               # Tool forge pipeline tests
+│   └── test_registry.py            # Tool registry tests
 ├── docs/
 │   └── USER_MANUAL.md              # This file
 ├── models/                         # .gguf files (gitignored)

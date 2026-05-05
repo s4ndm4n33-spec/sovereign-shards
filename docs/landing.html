@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sovereign Shards — J | AI Dev Agent on a USB Stick</title>
+<meta name="description" content="A fully local AI developer agent that plans, codes, tests, and ships — no cloud, no API keys, no internet. Runs from a 16 GB USB stick.">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #111118;
+    --bg3: #1a1a24;
+    --text: #e8e8f0;
+    --muted: #8888a0;
+    --teal: #00d4aa;
+    --teal-dim: #00a885;
+    --violet: #8b5cf6;
+    --violet-dim: #6d3fcc;
+    --border: #2a2a3a;
+    --glow: rgba(0, 212, 170, 0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── Typography ──────────────────────────── */
+  h1, h2, h3 { font-weight: 700; letter-spacing: -0.02em; }
+  h1 { font-size: clamp(2.2rem, 5vw, 3.8rem); line-height: 1.1; }
+  h2 { font-size: clamp(1.6rem, 3vw, 2.4rem); line-height: 1.2; margin-bottom: 1rem; }
+  h3 { font-size: 1.15rem; margin-bottom: 0.5rem; }
+  p { color: var(--muted); max-width: 600px; }
+
+  /* ── Layout ──────────────────────────────── */
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 1.5rem; }
+  section { padding: 5rem 0; }
+
+  /* ── Nav ─────────────────────────────────── */
+  nav {
+    position: fixed; top: 0; width: 100%; z-index: 100;
+    background: rgba(10, 10, 15, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0.8rem 0;
+  }
+  nav .container { display: flex; align-items: center; justify-content: space-between; }
+  .logo { font-weight: 800; font-size: 1.1rem; color: var(--teal); text-decoration: none; letter-spacing: 0.02em; }
+  .logo span { color: var(--violet); }
+  nav a.cta-sm {
+    padding: 0.5rem 1.2rem; background: var(--teal); color: var(--bg);
+    text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 0.9rem;
+    transition: background 0.2s;
+  }
+  nav a.cta-sm:hover { background: var(--teal-dim); }
+
+  /* ── Hero ────────────────────────────────── */
+  .hero {
+    padding: 9rem 0 5rem; text-align: center;
+    background: radial-gradient(ellipse at 50% 0%, rgba(0, 212, 170, 0.08) 0%, transparent 60%);
+  }
+  .hero .badge {
+    display: inline-block; padding: 0.35rem 1rem; border-radius: 100px;
+    background: var(--bg3); border: 1px solid var(--border);
+    font-size: 0.8rem; color: var(--teal); margin-bottom: 1.5rem;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .hero h1 { margin-bottom: 1.2rem; }
+  .hero h1 .accent { color: var(--teal); }
+  .hero h1 .accent2 { color: var(--violet); }
+  .hero p { margin: 0 auto 2rem; font-size: 1.15rem; max-width: 560px; }
+  .hero-cta {
+    display: inline-block; padding: 0.9rem 2.4rem;
+    background: linear-gradient(135deg, var(--teal), var(--violet));
+    color: #fff; font-weight: 700; font-size: 1.05rem;
+    border-radius: 8px; text-decoration: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 24px rgba(0, 212, 170, 0.25);
+  }
+  .hero-cta:hover { transform: translateY(-2px); box-shadow: 0 6px 32px rgba(0, 212, 170, 0.35); }
+  .hero-sub { margin-top: 0.8rem; font-size: 0.85rem; color: var(--muted); }
+
+  /* ── Terminal demo ──────────────────────── */
+  .terminal {
+    max-width: 700px; margin: 3rem auto 0; background: var(--bg2);
+    border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    text-align: left; box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  }
+  .terminal-bar {
+    display: flex; gap: 6px; padding: 0.6rem 1rem;
+    background: var(--bg3); border-bottom: 1px solid var(--border);
+  }
+  .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .terminal-dot.r { background: #ff5f57; } .terminal-dot.y { background: #ffbd2e; } .terminal-dot.g { background: #28c840; }
+  .terminal-body {
+    padding: 1.2rem 1.5rem; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 0.82rem; line-height: 1.8; color: var(--muted);
+  }
+  .terminal-body .prompt { color: var(--teal); }
+  .terminal-body .j { color: var(--violet); }
+  .terminal-body .ok { color: #28c840; }
+
+  /* ── Stats bar ──────────────────────────── */
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1.5rem; text-align: center; padding: 3rem 0;
+    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  }
+  .stat-num { font-size: 2rem; font-weight: 800; color: var(--teal); }
+  .stat-label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* ── Features ────────────────────────────── */
+  .features-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem; margin-top: 2.5rem;
+  }
+  .feature-card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1.8rem; transition: border-color 0.2s;
+  }
+  .feature-card:hover { border-color: var(--teal); }
+  .feature-icon { font-size: 1.5rem; margin-bottom: 0.8rem; }
+  .feature-card h3 { color: var(--text); }
+  .feature-card p { font-size: 0.9rem; color: var(--muted); }
+
+  /* ── How it works ───────────────────────── */
+  .steps {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem; margin-top: 2.5rem;
+  }
+  .step { text-align: center; }
+  .step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--bg3); border: 2px solid var(--teal);
+    color: var(--teal); font-weight: 800; font-size: 1.2rem;
+    margin-bottom: 1rem;
+  }
+  .step p { margin: 0 auto; }
+
+  /* ── Comparison ─────────────────────────── */
+  .compare-table {
+    width: 100%; border-collapse: collapse; margin-top: 2rem;
+    font-size: 0.9rem;
+  }
+  .compare-table th, .compare-table td {
+    padding: 0.8rem 1.2rem; text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .compare-table th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .compare-table td:first-child { font-weight: 600; }
+  .compare-table .yes { color: #28c840; } .compare-table .no { color: #ff5f57; }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-highlight { background: rgba(0, 212, 170, 0.06); }
+
+  /* ── Use cases ──────────────────────────── */
+  .use-cases { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
+  .use-case { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 1.5rem; }
+  .use-case h3 { color: var(--text); }
+  .use-case p { font-size: 0.88rem; }
+
+  /* ── Final CTA ──────────────────────────── */
+  .final-cta {
+    text-align: center; padding: 5rem 0;
+    background: radial-gradient(ellipse at 50% 100%, rgba(139, 92, 246, 0.08) 0%, transparent 60%);
+  }
+  .final-cta p { margin: 0.8rem auto 2rem; font-size: 1.1rem; }
+
+  /* ── Footer ─────────────────────────────── */
+  footer {
+    padding: 2rem 0; text-align: center;
+    border-top: 1px solid var(--border);
+    font-size: 0.8rem; color: var(--muted);
+  }
+
+  /* ── Responsive ─────────────────────────── */
+  @media (max-width: 640px) {
+    .hero { padding: 7rem 0 3rem; }
+    .terminal-body { font-size: 0.72rem; padding: 1rem; }
+    .features-grid { grid-template-columns: 1fr; }
+    .compare-table { font-size: 0.8rem; }
+    .compare-table th, .compare-table td { padding: 0.6rem 0.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ Nav ═══════════ -->
+<nav>
+  <div class="container">
+    <a href="#" class="logo">SOVEREIGN <span>SHARDS</span></a>
+    <a href="https://github.com/s4ndm4n33-spec/sovereign-shards" class="cta-sm" target="_blank">View on GitHub →</a>
+  </div>
+</nav>
+
+<!-- ═══════════ Hero ═══════════ -->
+<section class="hero">
+  <div class="container">
+    <div class="badge">🔒 100% Local · Zero Cloud</div>
+    <h1>An AI developer agent<br>that runs from a <span class="accent">USB stick</span></h1>
+    <p>J plans, codes, tests, and ships — entirely offline. No API keys. No subscriptions. No data leaving your machine. Ever.</p>
+    <a href="https://github.com/s4ndm4n33-spec/sovereign-shards" class="hero-cta" target="_blank">Get Started Free</a>
+    <div class="hero-sub">Open source · Python · Works on any OS</div>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dot r"></div><div class="terminal-dot y"></div><div class="terminal-dot g"></div>
+      </div>
+      <div class="terminal-body">
+        <span class="prompt">$</span> python run.py<br>
+        <span class="j">[J]</span> Ready. Qwen2.5-Coder-14B loaded. 14 tools online.<br><br>
+        <span class="prompt">You:</span> Build a REST API with auth, tests, and deploy script<br><br>
+        <span class="j">[J]</span> Planning... 6 steps, 2 parallel tiers.<br>
+        <span class="ok">✓</span> step_1: Scaffold project structure<br>
+        <span class="ok">✓</span> step_2: Implement auth middleware<br>
+        <span class="ok">✓</span> step_3: Build API endpoints &nbsp;<span class="ok">✓</span> step_4: Write test suite<br>
+        <span class="ok">✓</span> step_5: Create deploy script<br>
+        <span class="ok">✓</span> step_6: Sandbox validation — 5/5 checks passed<br><br>
+        <span class="ok">🟢 SAFE TO PUSH</span> — 6/6 steps completed.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ Stats ═══════════ -->
+<section>
+  <div class="container">
+    <div class="stats">
+      <div><div class="stat-num">61</div><div class="stat-label">Python Files</div></div>
+      <div><div class="stat-num">7,096</div><div class="stat-label">Lines of Code</div></div>
+      <div><div class="stat-num">14+</div><div class="stat-label">Dev Tools</div></div>
+      <div><div class="stat-num">127</div><div class="stat-label">Tests</div></div>
+      <div><div class="stat-num">2</div><div class="stat-label">Dependencies</div></div>
+      <div><div class="stat-num">0</div><div class="stat-label">Cloud Calls</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ Features ═══════════ -->
+<section>
+  <div class="container">
+    <h2>Everything a dev agent needs.<br>Nothing it doesn't.</h2>
+    <p>Built lean. No bloated frameworks. No external services. Just Python, a language model, and 16 GB of sovereignty.</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🧠</div>
+        <h3>Plan → Execute → Verify</h3>
+        <p>DAG-based task planner decomposes goals into dependency-aware steps. Independent steps run in parallel. Each step is verified before continuing.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💾</div>
+        <h3>3-Tier Memory</h3>
+        <p>Active context reconstructed every turn. Rolling working memory with BM25 retrieval. Persistent long-term memory across sessions. Weight-triggered auto-pruning.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔧</div>
+        <h3>14+ Dev Tools</h3>
+        <p>File I/O, bash, git, search, tree, test runner, SQL, integrity hashing, scaffolding — all auto-discovered from <code>tools/run/</code>.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔨</div>
+        <h3>Inference Tool Forge</h3>
+        <p>"Build a tool for X" → J researches the domain, generates code, validates in sandbox, and hot-registers — mid-session, no restart.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <h3>Self-Healing Circuit Breaker</h3>
+        <p>Detects stuck loops, repeat errors, runaway turns. Graduated response: redirect → new approach → force skip. Never wastes your tokens spinning.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🧪</div>
+        <h3>Pre-Push Sandbox</h3>
+        <p>5-check validation gauntlet: conflict markers, py_compile, AST parse, tests, Five Masters code quality. No broken code leaves the drive.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔍</div>
+        <h3>AST Code Intelligence</h3>
+        <p>Multi-file analysis: circular imports, unused imports, dead code, variable shadows, rename helpers. Generates dark-theme HTML reports.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📡</div>
+        <h3>Streaming Output</h3>
+        <p>See builds, tests, and processes in real-time. Line-by-line streaming with 64 KB capture cap. No waiting for long ops to finish.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Dual Backend</h3>
+        <p>Works with llama.cpp (server mode) and Ollama out of the box. Hot-swap models mid-session with <code>/model</code>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ How It Works ═══════════ -->
+<section style="background: var(--bg2);">
+  <div class="container">
+    <h2 style="text-align: center;">Three steps. One USB.</h2>
+    <p style="text-align: center; margin: 0 auto;">From pocket to production in under a minute.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Plug In & Launch</h3>
+        <p>Insert the USB. Run <code>python run.py</code>. The local model boots automatically. No cloud. No config.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Describe the Job</h3>
+        <p>Tell J what to build in plain English. It breaks the task into a dependency graph of concrete steps.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>J Builds, Tests & Ships</h3>
+        <p>Autonomous plan → execute → verify loop. The sandbox validates everything before code leaves the drive.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ Comparison ═══════════ -->
+<section>
+  <div class="container">
+    <h2>How J compares</h2>
+    <p>Same architecture as cloud agents — without the cloud.</p>
+
+    <div style="overflow-x: auto;">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Capability</th>
+          <th class="compare-highlight">J (Sovereign Shards)</th>
+          <th>GitHub Copilot</th>
+          <th>Claude Code</th>
+          <th>OpenAI Codex</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Multi-step planning</td><td class="compare-highlight yes">✓ DAG + parallel</td><td class="no">✗</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Runs 100% offline</td><td class="compare-highlight yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td>No API key required</td><td class="compare-highlight yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td>Portable (USB stick)</td><td class="compare-highlight yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td>Your data stays local</td><td class="compare-highlight yes">✓ Always</td><td class="no">✗ Sent to cloud</td><td class="no">✗ Sent to cloud</td><td class="no">✗ Sent to cloud</td></tr>
+        <tr><td>Cross-session memory</td><td class="compare-highlight yes">✓ 3-tier</td><td class="no">✗</td><td class="yes">✓ Project context</td><td class="yes">✓</td></tr>
+        <tr><td>Self-healing on errors</td><td class="compare-highlight yes">✓ Circuit breaker</td><td class="no">✗</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Builds its own tools</td><td class="compare-highlight yes">✓ Inference forge</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td>Monthly cost</td><td class="compare-highlight" style="color: var(--teal); font-weight: 700;">$0</td><td>$19+/mo</td><td>$20+/mo</td><td>$20+/mo</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ Use Cases ═══════════ -->
+<section style="background: var(--bg2);">
+  <div class="container">
+    <h2>Built for builders who own their tools</h2>
+
+    <div class="use-cases">
+      <div class="use-case">
+        <h3>🏗️ Solo Developers</h3>
+        <p>A senior-dev copilot in your pocket. Plan complex features, scaffold projects, debug codebases — without a subscription or internet connection.</p>
+      </div>
+      <div class="use-case">
+        <h3>🏢 Air-Gapped Environments</h3>
+        <p>Defense, healthcare, finance — anywhere code can't touch the cloud. J runs fully offline with zero telemetry and zero network calls.</p>
+      </div>
+      <div class="use-case">
+        <h3>🎓 Education & Workshops</h3>
+        <p>Hand out pre-loaded USBs. Students get a real AI coding agent without accounts, billing, or infrastructure. Works on any laptop.</p>
+      </div>
+      <div class="use-case">
+        <h3>🌍 Low-Connectivity Regions</h3>
+        <p>Build software where there's no reliable internet. J brings cloud-tier dev tools to any hardware, any location, any situation.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ Final CTA ═══════════ -->
+<section class="final-cta">
+  <div class="container">
+    <h2>Your code. Your hardware.<br>Your <span style="color: var(--teal);">sovereign</span> agent.</h2>
+    <p>Clone the repo, drop a model on a USB stick, and start building. No signup. No API keys. No strings.</p>
+    <a href="https://github.com/s4ndm4n33-spec/sovereign-shards" class="hero-cta" target="_blank">Get Started on GitHub</a>
+  </div>
+</section>
+
+<!-- ═══════════ Footer ═══════════ -->
+<footer>
+  <div class="container">
+    <p>Sovereign Shards — because your code belongs to you.</p>
+  </div>
+</footer>
+
+</body>
+</html>
