@@ -23,7 +23,8 @@ from app.agent.executor import (
     format_tool_result,
     needs_confirmation,
 )
-from app.agent.graph import ready_steps, format_graph
+from app.agent.graph import ready_steps, format_graph, topo_tiers
+from app.agent.parallel import StepOutcome, run_tier_parallel, safe_print
 from app.agent.planner import build_plan_prompt, parse_plan
 from app.agent.reflection import should_reflect, build_reflect_prompt, parse_reflected, apply_reflection
 from app.agent.task_store import save_task, load_task
@@ -198,7 +199,7 @@ def _stream_reply(client: RuntimeConfig, messages: list[dict[str, str]]) -> str:
             try:
                 report = evaluate_code(content)
                 if report.score() < 5:
-                    return f"\n[FIVE MASTERS WARNING]\n{report}\n\n{content}"
+                    return f"\n[FIVE MASTERS WARNING]\n{report.summary()}\n\n{content}"
             except Exception:
                 pass
         return content
@@ -342,7 +343,10 @@ def _run_agent_task(
     objective: str,
     autonomy_mode: str = "semi",
 ) -> str:
-    """Full agent loop: plan the task, execute each step, verify results."""
+    """Full agent loop: plan the task, execute each step, verify results.
+
+    Steps within the same dependency tier run in parallel.
+    """
 
     rlog.event("agent_start", objective=objective)
 
@@ -364,52 +368,74 @@ def _run_agent_task(
     print(f"\n[PLAN] {len(task.steps)} step(s):")
     print(format_graph(task.steps, set(task.completed_step_ids)))
 
-    # 2. Execute steps in dependency order (graph walker)
-    results_log: list[str] = []
+    # 2. Build topological tiers for parallel execution
+    tiers = topo_tiers(task.steps)
     completed = set(task.completed_step_ids)
-    while True:
-        runnable = ready_steps(task.steps, completed)
-        if not runnable:
-            break  # all done or blocked
-        step = runnable[0]  # serial execution; pick first ready step
+    results_log: list[str] = []
+    abort = False
 
-        print(f"\n{'='*50}")
-        print(f"[STEP {step.id}] {step.goal}")
+    def _execute_single_step(step: AgentStep) -> StepOutcome:
+        """Execute + verify a single step. Thread-safe for parallel tiers."""
+        import threading
+        # Each thread gets its own message list copy to avoid cross-contamination
+        step_messages = list(messages)
+
+        safe_print(f"\n{'='*50}")
+        safe_print(f"[STEP {step.id}] {step.goal}")
         deps_label = f" (after: {', '.join(step.depends_on)})" if step.depends_on else ""
-        print(f"[CRITERIA] {step.success_criteria}{deps_label}")
-        print("=" * 50)
+        safe_print(f"[CRITERIA] {step.success_criteria}{deps_label}")
+        safe_print("=" * 50)
 
         step_prompt = build_step_prompt(step, registry.describe())
         step_reply = _run_turn(
-            client, messages, logger, rlog, step_prompt, registry, autonomy_mode
+            client, step_messages, logger, rlog, step_prompt, registry, autonomy_mode
         )
-        results_log.append(f"[{step.id}] {step_reply[:500]}")
 
-        # 3. Verify
+        # Verify
         rlog.event("verify_start", step=step.id)
         verify_prompt = build_verify_prompt(step.goal, step.success_criteria, step_reply)
-        messages.append({"role": "user", "content": verify_prompt})
-        messages[:] = trim_context(messages, max_tokens=client.num_ctx)
+        step_messages.append({"role": "user", "content": verify_prompt})
+        step_messages[:] = trim_context(step_messages, max_tokens=client.num_ctx)
 
-        verify_raw = _stream_reply(client, messages)
-        print()
-        messages.append({"role": _assistant_role(client), "content": verify_raw})
+        verify_raw = _stream_reply(client, step_messages)
+        safe_print()
+        step_messages.append({"role": _assistant_role(client), "content": verify_raw})
 
         passed, reason = parse_verdict(verify_raw)
         status = "PASSED" if passed else "FAILED"
-        print(f"\n[VERIFY {status}] {step.id}: {reason}")
+        safe_print(f"\n[VERIFY {status}] {step.id}: {reason}")
         rlog.event("verify_done", step=step.id, passed=passed, reason=reason)
         logger.append("system", f"[VERIFY {status}] {step.id}: {reason}")
 
-        if passed:
-            completed.add(step.id)
-            task.completed_step_ids.append(step.id)
-            task.artifacts.append(f"{step.id}: {reason}")
-            save_task(task, task_id)
-        else:
-            print(f"[STEP FAILED] {step.id} — stopping agent loop.")
-            rlog.event("agent_step_failed", step=step.id, reason=reason)
+        return StepOutcome(step=step, reply=step_reply, passed=passed, reason=reason)
+
+    for tier_idx, tier in enumerate(tiers):
+        if abort:
             break
+
+        # Filter out already-completed steps (from checkpoint resume)
+        pending = [s for s in tier if s.id not in completed]
+        if not pending:
+            continue
+
+        if len(pending) > 1:
+            safe_print(f"\n[TIER {tier_idx + 1}] Running {len(pending)} steps in parallel...")
+
+        outcomes = run_tier_parallel(pending, _execute_single_step)
+
+        for outcome in outcomes:
+            results_log.append(f"[{outcome.step.id}] {outcome.reply[:500]}")
+
+            if outcome.passed:
+                completed.add(outcome.step.id)
+                task.completed_step_ids.append(outcome.step.id)
+                task.artifacts.append(f"{outcome.step.id}: {outcome.reason}")
+                save_task(task, task_id)
+            else:
+                safe_print(f"[STEP FAILED] {outcome.step.id} — stopping agent loop.")
+                rlog.event("agent_step_failed", step=outcome.step.id, reason=outcome.reason)
+                abort = True
+                break
 
     # Summary
     done = len(task.completed_step_ids)
@@ -467,7 +493,7 @@ def run_chat(
         print(f"Backend: {client.backend}")
         print(f"Model:   {client.model}")
         print(f"Mode:    {autonomy_mode}")
-        print("Commands: quit, exit, /snapshot, /help, /tools, /plan <goal>, /index, /memory, /reflect")
+        print("Commands: quit, exit, /snapshot, /help, /tools, /plan <goal>, /index, /memory, /reflect, /integrity")
         if client.backend == "llama_cpp":
             print(f"Server log: {local_server.log_path}")
 
@@ -498,6 +524,7 @@ def run_chat(
                     "  /mode <level>    — change autonomy (manual/semi/auto-safe/auto-full)\n"
                     "  /memory          — show recent working memory entries\n"
                     "  /reflect         — manually compress working memory\n"
+                    "  /integrity       — check file integrity against baseline\n"
                     "  build <name>     — quick-scaffold a package\n"
                     "  bruce wayne      — toggle sandbox"
                 )
@@ -559,6 +586,18 @@ def run_chat(
                     print(f"[REFLECT OK] {len(entries)} → {len(consolidated)} entries")
                 else:
                     print("[REFLECT FAIL] Could not parse; memory unchanged.")
+                continue
+
+            if user_message == "/integrity":
+                result = registry.execute("run_integrity", [])
+                print(result)
+                rlog.event("integrity_check")
+                continue
+
+            if user_message == "/integrity --baseline":
+                result = registry.execute("run_integrity", ["--baseline"])
+                print(result)
+                rlog.event("integrity_baseline")
                 continue
 
             if user_message.startswith("/plan "):

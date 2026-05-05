@@ -48,5 +48,16 @@
     "description": "Run a test command and report pass/fail. Args: command.",
     "args": ["command"],
     "side_effect": "exec"
+  },
+  "run_sql": {
+    "description": "Execute a SQLite query. Args: db_path, query. SELECT returns a table; writes report rows affected.",
+    "args": ["db_path", "query"],
+    "side_effect": "exec",
+    "timeout_seconds": 15
+  },
+  "run_integrity": {
+    "description": "File integrity checker. Args: [path] [--baseline]. Without --baseline, compares current files against saved hashes.",
+    "args": ["path", "--baseline"],
+    "side_effect": "read"
   }
 }
