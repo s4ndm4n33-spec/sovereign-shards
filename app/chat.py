@@ -158,7 +158,16 @@ def _ollama_chat(client: RuntimeConfig, messages: list[dict[str, str]]):
     try:
         return urlopen(request, timeout=300)
     except Exception as error:
-        raise TransportError("E_TRANSPORT", "Connection failed", str(error)) from error
+        detail = str(error)
+        # Read the actual response body for HTTP errors (4xx/5xx)
+        if hasattr(error, "read"):
+            try:
+                body = error.read().decode("utf-8", errors="replace")[:500]
+                if body:
+                    detail = f"{detail}\n{body}"
+            except Exception:
+                pass
+        raise TransportError("E_TRANSPORT", "Connection failed", detail) from error
 
 
 def _llama_cpp_chat(client: RuntimeConfig, messages: list[dict[str, str]]):
@@ -181,7 +190,16 @@ def _llama_cpp_chat(client: RuntimeConfig, messages: list[dict[str, str]]):
     try:
         return urlopen(request, timeout=300)
     except Exception as error:
-        raise TransportError("E_TRANSPORT", "Connection failed", str(error)) from error
+        detail = str(error)
+        # Read the actual response body for HTTP errors (4xx/5xx)
+        if hasattr(error, "read"):
+            try:
+                body = error.read().decode("utf-8", errors="replace")[:500]
+                if body:
+                    detail = f"{detail}\n{body}"
+            except Exception:
+                pass
+        raise TransportError("E_TRANSPORT", "Connection failed", detail) from error
 
 
 def _stream_reply(client: RuntimeConfig, messages: list[dict[str, str]]) -> str:
