@@ -104,7 +104,9 @@ def _check_syntax(project_dir: str) -> CheckResult:
 
 
 def _check_imports(project_dir: str) -> CheckResult:
-    """Try importing each top-level module to catch missing deps."""
+    """AST-parse every .py file to catch syntax / encoding issues."""
+    import ast
+
     t0 = time.time()
     errors = []
     py_files = []
@@ -116,19 +118,14 @@ def _check_imports(project_dir: str) -> CheckResult:
             if f.endswith(".py") and f != "__init__.py":
                 py_files.append(os.path.join(root, f))
 
-    # Use subprocess to isolate each import check
     for path in py_files[:50]:  # cap to stay fast
         rel = os.path.relpath(path, project_dir)
         try:
-            result = subprocess.run(
-                ["python", "-c", f"import ast; ast.parse(open('{path}').read())"],
-                capture_output=True, text=True, timeout=5,
-                cwd=project_dir,
-            )
-            if result.returncode != 0:
-                errors.append(f"{rel}: {result.stderr.strip().splitlines()[-1]}")
-        except subprocess.TimeoutExpired:
-            errors.append(f"{rel}: parse timed out")
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                source = fh.read()
+            ast.parse(source, filename=rel)
+        except SyntaxError as exc:
+            errors.append(f"{rel}: SyntaxError: {exc.msg}")
         except Exception as exc:
             errors.append(f"{rel}: {exc}")
 
@@ -191,7 +188,8 @@ def _check_five_masters(project_dir: str) -> CheckResult:
                     continue
                 path = os.path.join(root, f)
                 try:
-                    source = open(path).read()
+                    with open(path, encoding="utf-8", errors="replace") as fh:
+                        source = fh.read()
                     report = FiveMastersReport(source, filename=os.path.relpath(path, project_dir))
                     issues.extend(report.issues)
                 except Exception:
@@ -233,7 +231,8 @@ def _check_git_status(project_dir: str) -> CheckResult:
                 continue
             path = os.path.join(root, f)
             try:
-                lines = open(path).readlines()
+                with open(path, encoding="utf-8", errors="replace") as fh:
+                    lines = fh.readlines()
                 has_start = any(line.startswith(marker_start) for line in lines)
                 has_mid = any(line.strip() == marker_mid for line in lines)
                 has_end = any(line.startswith(marker_end) for line in lines)
