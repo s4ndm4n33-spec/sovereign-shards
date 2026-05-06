@@ -15,7 +15,13 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 from app.agent import ToolRegistry, working_memory
-from app.agent.context import trim_context, reconstruct_context, estimate_messages_tokens
+from app.agent.context import (
+    trim_context,
+    reconstruct_context,
+    estimate_messages_tokens,
+    preflight_trim,
+    compress_step_result,
+)
 from app.agent.contracts import AgentTask, ToolCall
 from app.agent.executor import (
     build_step_prompt,
@@ -203,7 +209,11 @@ def _llama_cpp_chat(client: RuntimeConfig, messages: list[dict[str, str]]):
 
 
 def _stream_reply(client: RuntimeConfig, messages: list[dict[str, str]]) -> str:
-    """Stream reply with Five Masters gate."""
+    """Stream reply with pre-flight budget gate and Five Masters gate."""
+
+    # ── Pre-flight: guarantee the payload fits the context window ──
+    messages[:] = preflight_trim(messages, client.num_ctx, client.num_predict)
+
     reply_chunks: list[str] = []
 
     def emit(token: str) -> None:
@@ -476,11 +486,27 @@ def _run_agent_task(
                 task.completed_step_ids.append(outcome.step.id)
                 task.artifacts.append(f"{outcome.step.id}: {outcome.reason}")
                 save_task(task, task_id)
+
+                # ── Context seaming ────────────────────────────
+                # Compress the completed step into working memory
+                # so the next step starts with a lean context
+                # instead of dragging the full conversation forward.
+                step_summary = compress_step_result(
+                    outcome.step.id, outcome.step.goal,
+                    outcome.reply, outcome.passed,
+                )
+                working_memory.append(step_summary)
             else:
                 safe_print(f"[STEP FAILED] {outcome.step.id} — stopping agent loop.")
                 rlog.event("agent_step_failed", step=outcome.step.id, reason=outcome.reason)
                 abort = True
                 break
+
+        # After each tier, trim the main message list so it doesn't
+        # balloon across tiers.  reconstruct_context in _run_turn
+        # will pull the compressed steps back via working memory.
+        if not abort:
+            messages[:] = trim_context(messages, max_tokens=client.num_ctx)
 
     # Summary
     done = len(task.completed_step_ids)

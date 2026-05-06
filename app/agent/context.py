@@ -2,6 +2,10 @@
 
 Keeps the conversation within token limits by summarizing old turns.
 Estimates tokens as chars/4 (good enough for local models).
+
+Includes a pre-flight budget gate so no request ever exceeds the
+server's context window, and a step compressor for seaming multi-step
+workflows across context boundaries.
 """
 
 from __future__ import annotations
@@ -77,6 +81,88 @@ def trim_context(
         result = system_msgs + tail
 
     return result
+
+
+# ── Pre-flight budget gate ─────────────────────────────────────────
+
+
+def preflight_trim(
+    messages: list[dict[str, str]],
+    max_ctx: int,
+    reserve_for_reply: int = 1024,
+) -> list[dict[str, str]]:
+    """Hard budget gate — called right before every LLM request.
+
+    Ensures the outbound payload fits in (max_ctx - reserve_for_reply)
+    so the server never rejects the request and the model has room to
+    actually generate a response.
+
+    Three escalation stages:
+      1. Normal trim (summarize middle messages).
+      2. Aggressive trim (cap every message, keep fewer tails).
+      3. Emergency trim (system + last 2 messages only).
+    """
+    budget = max(256, max_ctx - reserve_for_reply)
+    current = estimate_messages_tokens(messages)
+
+    if current <= budget:
+        return messages
+
+    # Stage 1: normal trim
+    messages = trim_context(messages, max_tokens=budget)
+    if estimate_messages_tokens(messages) <= budget:
+        return messages
+
+    # Stage 2: aggressive — cap non-system content, fewer tail messages
+    messages = trim_context(messages, max_tokens=budget, keep_last_n=2)
+    if estimate_messages_tokens(messages) <= budget:
+        return messages
+
+    # Stage 3: hard compress everything
+    result = []
+    for m in messages:
+        content = m.get("content", "")
+        if m.get("role") == "system":
+            # Cap system prompt at 60% of budget
+            sys_cap = int(budget * 0.6 * CHARS_PER_TOKEN)
+            if len(content) > sys_cap:
+                content = content[:sys_cap] + "\n[...truncated to fit context window...]"
+            result.append({"role": "system", "content": content})
+        else:
+            # Cap each turn at ~150 tokens
+            turn_cap = 150 * CHARS_PER_TOKEN
+            if len(content) > turn_cap:
+                content = content[:turn_cap] + "..."
+            result.append({"role": m["role"], "content": content})
+
+    # If STILL over, last resort: system + last 2 messages
+    if estimate_messages_tokens(result) > budget:
+        system = [m for m in result if m.get("role") == "system"]
+        non_system = [m for m in result if m.get("role") != "system"]
+        result = system + non_system[-2:]
+
+    return result
+
+
+# ── Step compressor for multi-step seaming ─────────────────────────
+
+
+def compress_step_result(
+    step_id: str,
+    goal: str,
+    reply: str,
+    passed: bool,
+) -> str:
+    """Compress a completed step into a single-line working memory entry.
+
+    Used after each agent step so the next step starts with a clean
+    context instead of dragging the full conversation forward.
+    """
+    status = "DONE" if passed else "FAILED"
+    # Extract the first meaningful line from the reply
+    lines = [l.strip() for l in reply.strip().splitlines() if l.strip()]
+    snippet = lines[0][:200] if lines else "(no output)"
+    return f"[{status}] {step_id}: {goal} → {snippet}"
 
 
 # ── Tier 1: Active Context Reconstruction ──────────────────────────
