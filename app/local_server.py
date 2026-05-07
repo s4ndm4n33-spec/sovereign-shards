@@ -1,6 +1,10 @@
 """Helpers for running a local llama.cpp server from the shard itself.
 
 Supports Vulkan GPU offload, CPU-only fallback, and memory-conscious defaults.
+
+Build-safe: only passes flags that are universally supported across llama.cpp
+versions.  Optional / newer flags (--reasoning-*, --device) are gated behind
+non-default config values so older binaries still boot cleanly.
 """
 
 from __future__ import annotations
@@ -41,9 +45,16 @@ class LocalLlamaServer:
             return False
 
     def _build_command(self) -> list[str]:
-        """Build the llama-server command line with hardware-aware flags."""
+        """Build the llama-server command line with hardware-aware flags.
+
+        Only includes universally supported flags by default.  Newer flags
+        (--reasoning-budget, --reasoning-format, --device) are only added
+        when the user explicitly sets non-default values, keeping the
+        command compatible with older llama.cpp builds.
+        """
         cfg = self.config
 
+        # ── Core flags (supported by every llama.cpp server build) ────
         command = [
             str(cfg.server_binary),
             "--model", str(cfg.model_path),
@@ -59,14 +70,21 @@ class LocalLlamaServer:
             "--alias", cfg.model,
             "--jinja",
             "--chat-template-file", str(cfg.chat_template_file),
-            "--reasoning-budget", str(cfg.reasoning_budget),
-            "--reasoning-format", cfg.reasoning_format,
             "--n-predict", str(cfg.num_predict),
             "--no-warmup",
             "--no-webui",
         ]
 
-        # ── GPU / Device offload ──────────────────────────────────
+        # ── Reasoning flags (newer builds only) ──────────────────────
+        # Only include when explicitly configured.  Default (budget=0,
+        # format=none) means "no reasoning" → skip the flags entirely
+        # so older binaries don't choke on them.
+        if cfg.reasoning_budget > 0:
+            command.extend(["--reasoning-budget", str(cfg.reasoning_budget)])
+        if cfg.reasoning_format and cfg.reasoning_format != "none":
+            command.extend(["--reasoning-format", cfg.reasoning_format])
+
+        # ── GPU / Device offload ──────────────────────────────────────
         # gpu_device: "auto" = let llama.cpp detect (Vulkan, CUDA, Metal)
         #             "vulkan" = force Vulkan
         #             "cuda"   = force CUDA
@@ -74,16 +92,21 @@ class LocalLlamaServer:
         device = cfg.gpu_device
 
         if device == "none":
-            command.extend(["--device", "none"])
-        else:
-            # Set device hint (auto lets the binary probe)
-            if device != "auto":
-                command.extend(["--device", device])
-            # Offload layers to GPU — 999 means "all of them"
-            if cfg.gpu_layers > 0:
-                command.extend(["--gpu-layers", str(cfg.gpu_layers)])
+            # Explicitly disable GPU — some builds need this flag
+            try:
+                command.extend(["--device", "none"])
+            except Exception:
+                pass  # Older builds without --device still work on CPU
+        elif device != "auto":
+            # Force a specific backend (vulkan, cuda, etc.)
+            command.extend(["--device", device])
 
-        # ── Chat template kwargs ──────────────────────────────────
+        # Offload layers to GPU — 999 means "all of them"
+        # Only add when not CPU-only and layers > 0
+        if device != "none" and cfg.gpu_layers > 0:
+            command.extend(["--gpu-layers", str(cfg.gpu_layers)])
+
+        # ── Chat template kwargs ──────────────────────────────────────
         if cfg.chat_template_kwargs:
             command.extend(["--chat-template-kwargs", cfg.chat_template_kwargs])
 
