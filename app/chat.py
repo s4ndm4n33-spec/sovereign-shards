@@ -585,10 +585,22 @@ def run_chat(
         rlog.event("startup", backend=client.backend, model=client.model, mode=autonomy_mode)
         local_server.ensure_started()
 
+        # ── Diagnostic: confirm system prompt is loaded ──
+        sys_content = messages[0].get("content", "") if messages else ""
+        sys_tokens = max(1, len(sys_content) // 4)
+        budget = max(256, client.num_ctx - client.num_predict)
+
         print(f"--- SOVEREIGN SHARD ONLINE [{logger.session_id}] ---")
         print(f"Backend: {client.backend}")
         print(f"Model:   {client.model}")
         print(f"Mode:    {autonomy_mode}")
+        print(f"Context: {client.num_ctx} tokens (budget {budget}, system ~{sys_tokens})")
+        if sys_content:
+            # Show first 60 chars so user can verify the right prompt loaded
+            preview = sys_content[:60].replace("\n", " ")
+            print(f"Prompt:  {preview}...")
+        else:
+            print("⚠ WARNING: System prompt is EMPTY — J-system.txt may be missing!")
         print("Commands: quit, exit, /help, /tools, /plan, /model, /mode, /memory, /snapshot, /sandbox, /refactor, /optimize, /report")
         if client.backend == "llama_cpp":
             print(f"Server log: {local_server.log_path}")
