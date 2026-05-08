@@ -92,23 +92,14 @@ class LocalLlamaServer:
         device = cfg.gpu_device
 
         if device == "none":
-            # Explicitly disable GPU — some builds need this flag
-            try:
-                command.extend(["--device", "none"])
-            except Exception:
-                pass  # Older builds without --device still work on CPU
-        elif device != "auto":
-            # Force a specific backend (vulkan, cuda, etc.)
-            command.extend(["--device", device])
-
-        # Offload layers to GPU — 999 means "all of them"
-        # Only add when not CPU-only and layers > 0
-        if device != "none" and cfg.gpu_layers > 0:
-            command.extend(["--gpu-layers", str(cfg.gpu_layers)])
-
-        # ── Chat template kwargs ──────────────────────────────────────
-        if cfg.chat_template_kwargs:
-            command.extend(["--chat-template-kwargs", cfg.chat_template_kwargs])
+            # Force CPU-only — always pass explicit zero to override defaults
+            command.extend(["--gpu-layers", "0"])
+        else:
+            if device != "auto":
+                # Force a specific backend (vulkan, cuda, etc.)
+                command.extend(["--device", device])
+            if cfg.gpu_layers > 0:
+                command.extend(["--gpu-layers", str(cfg.gpu_layers)])
 
         return command
 

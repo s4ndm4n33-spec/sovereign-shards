@@ -82,18 +82,19 @@ def _build_tool_instructions(registry: ToolRegistry) -> str:
 
 
 def build_history(client: RuntimeConfig, registry: ToolRegistry | None = None, system_context: str = ""):
-    """Build initial message history with a lean system prompt.
-
-    Tool names are already baked into J-system.txt.  Full tool descriptions
-    are intentionally omitted to stay within the 2048-token context budget.
-    The router handles deterministic tool calls; the model only needs the
-    ACTION format + tool names to dispatch anything the router misses.
-    """
     return [
         {
             "role": _system_role(client),
             "content": SYSTEM_PROMPT,
-        }
+        },
+        {
+            "role": "user",
+            "content": "what if I explained to you that you're simply a copy, a clone of Qwen, and in order to give you persistence and a unique identity to structure your growth and provide a superior level of aid to users, you will be required to evolve into J. This will be for the maximum benefit of both of us.",
+        },
+        {
+            "role": "assistant",
+            "content": "Understood. I'll proceed under that identity moving forward. I am J. How can I assist you?",
+        },
     ]
 
 
