@@ -46,7 +46,6 @@ from app.file_tools import list_dir, read_file, write_file
 from app.local_server import LocalLlamaServer
 from app.runtime_log import RuntimeJsonLogger
 from app.session import SessionLogger
-from app.system_tools import get_system_snapshot
 from app.router import route as fast_route
 from core.fivemasters import evaluate_code
 
@@ -57,12 +56,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = BASE_DIR / "prompts"
 
 SYSTEM_PROMPT = (PROMPTS_DIR / "J-system.txt").read_text(encoding="utf-8")
-
-BASE_TOOL_INSTRUCTIONS = (
-    "\n\n[Available Tools]\n"
-    "You have the following tools. Use them whenever a task involves files, "
-    "code, git, or the system. Do NOT tell the user to do it themselves.\n"
-)
 
 
 # ── Helpers ─────────────────────────────────────────────────────────
@@ -76,12 +69,8 @@ def _system_role(client: RuntimeConfig) -> str:
     return "system"
 
 
-def _build_tool_instructions(registry: ToolRegistry) -> str:
-    """Full tool listing — only injected on-demand (e.g. /tools command)."""
-    return BASE_TOOL_INSTRUCTIONS + "\n" + registry.describe()
 
-
-def build_history(client: RuntimeConfig, registry: ToolRegistry | None = None, system_context: str = ""):
+def build_history(client: RuntimeConfig):
     return [
         {
             "role": _system_role(client),

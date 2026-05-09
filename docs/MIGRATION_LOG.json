@@ -1,7 +1,7 @@
 {
   "project": "sovereign-shards",
-  "generated_at": "2026-05-04",
-  "purpose": "Portable migration log for recreating the ToolRegistry + chat-loop integration in another environment.",
+  "generated_at": "2026-05-09",
+  "purpose": "Portable migration log for recreating and auditing the ToolRegistry + chat-loop integration in another environment.",
   "source_branch": "work",
   "milestones": [
     {
@@ -117,7 +117,14 @@
       ]
     }
   ],
-  "migration_order": ["M1", "M2", "M4", "M5", "M3", "M6"],
+  "migration_order": [
+    "M1",
+    "M2",
+    "M4",
+    "M5",
+    "M3",
+    "M6"
+  ],
   "validation": {
     "commands": [
       "python -m compileall run.py app",

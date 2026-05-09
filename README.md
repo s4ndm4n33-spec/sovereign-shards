@@ -183,7 +183,7 @@ sovereign-shards/
 ├── core/
 │   └── fivemasters.py          # Five Masters AST governance (5 visitors)
 ├── prompts/
-│   ├── J-system.txt            # System prompt (~279 tokens — lean)
+│   ├── J-system.txt            # System prompt (~130 tokens — lean)
 │   └── J-chat-template.jinja   # ChatML template for llama.cpp
 ├── tools/run/                  # 18+ auto-discovered tool scripts
 ├── tests/                      # 147+ tests (unittest, zero deps)

@@ -3,12 +3,22 @@
 > For the next agent, developer, or collaborator picking up this project.
 > Read this entire document before writing a single line of code.
 
-**Last updated:** 2026-05-07
+**Last updated:** 2026-05-09
 **Previous agent:** Viktor (getviktor.com) — 30 commits across a 48-hour sprint
 **Repo:** github.com/s4ndm4n33-spec/sovereign-shards
-**Branch:** `main` (sole active branch — all others archived or deleted)
+**Branch:** `work` (active development branch at the time of this audit).
 
 ---
+
+## 0. AUDIT NOTE (2026-05-09)
+
+This log was reconciled against the current repository state on **May 9, 2026**.
+
+Verified updates:
+- Active branch reference corrected from `main` to `work`.
+- `app/chat.py` line-count annotation updated (926 lines).
+- Test-suite summary wording updated to reflect current `tests/` layout.
+- `docs/MIGRATION_LOG.json` refreshed to match this handoff context.
 
 ## 1. WHAT THIS IS
 
@@ -72,7 +82,7 @@ sovereign-shards/
 ├── .env                        # Local config (gitignored). See .env.example.
 │
 ├── app/
-│   ├── chat.py                 # Main chat loop (891 lines). Heart of the system.
+│   ├── chat.py                 # Main chat loop (926 lines). Heart of the system.
 │   ├── client.py               # RuntimeConfig — reads .env, builds config dataclass.
 │   ├── local_server.py         # Launches llama.cpp server with hardware-aware flags.
 │   ├── router.py               # Fast deterministic command router (zero inference cost).
@@ -129,7 +139,7 @@ sovereign-shards/
 │   ├── str_replace.py          # String replacement in files.
 │   └── registry.json           # Tool metadata manifest.
 │
-├── tests/                      # 14 test files. 147+ tests (all passing in sandbox).
+├── tests/                      # 14 test files + shared fixtures (all passing in sandbox at last run).
 │
 ├── docs/
 │   ├── USER_MANUAL.md          # User-facing documentation.
