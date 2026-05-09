@@ -20,11 +20,6 @@ Verified updates:
 - Test-suite summary wording updated to reflect current `tests/` layout.
 - `docs/MIGRATION_LOG.json` refreshed to match this handoff context.
 
-Follow-up implementation (2026-05-09):
-- Hardened ACTION handling in the executor path used by `_run_turn` (single retry when ACTION is missing).
-- Added explicit ACTION payload validation for missing tool, non-list args, and unknown tool names before execution.
-- Added tool-error feedback formatting/reset semantics to improve recovery in multi-hop tool loops.
-
 ## 1. WHAT THIS IS
 
 A fully local, USB-portable developer agent called **J** (sometimes **B.L.U.E.-J**). It runs on a 16GB RAM Windows machine from a FAT32-formatted Kingston 2.0 USB drive. No cloud. No API keys. No host dependencies. The model, the server, the tools, the runtime — everything lives on the shard.
