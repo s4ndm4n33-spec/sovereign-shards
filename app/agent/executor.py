@@ -8,7 +8,7 @@ Respects autonomy mode: in 'semi', side-effects require confirmation.
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from app.agent.contracts import AgentStep, AgentTask, ToolCall, ToolResult
 
@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from app.agent.tool_registry import ToolRegistry
 
 PROCESS_PAUSE_SECONDS = 0.2
+MAX_ACTION_RETRIES = 1
+ACTION_RETRY_PROMPT = "You must call a tool. Respond ONLY with ACTION:{\"tool\":...,\"args\":[...]}"
 
 
 def build_step_prompt(step: AgentStep, tool_listing: str) -> str:
@@ -42,6 +44,20 @@ def needs_confirmation(tool_name: str, registry: "ToolRegistry", mode: str) -> b
         return effect in ("write", "exec")
     return True  # manual mode: always confirm
 
+
+
+def validate_action_payload(action: dict, registry: "ToolRegistry") -> Optional[str]:
+    """Validate extracted ACTION payload; return error text, or None if valid."""
+    tool_name = action.get("tool")
+    args = action.get("args", [])
+
+    if not tool_name or not isinstance(tool_name, str):
+        return "Invalid ACTION: missing 'tool'."
+    if not isinstance(args, list):
+        return "Invalid ACTION: args must be a list."
+    if registry.get(tool_name) is None:
+        return f"Unknown tool '{tool_name}'."
+    return None
 
 def execute_tool_call(
     call: ToolCall,

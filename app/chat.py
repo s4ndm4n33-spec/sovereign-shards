@@ -28,6 +28,9 @@ from app.agent.executor import (
     execute_tool_call,
     format_tool_result,
     needs_confirmation,
+    MAX_ACTION_RETRIES,
+    ACTION_RETRY_PROMPT,
+    validate_action_payload,
 )
 from app.agent.graph import ready_steps, format_graph, topo_tiers
 from app.agent.parallel import StepOutcome, run_tier_parallel, safe_print
@@ -313,10 +316,27 @@ def _run_turn(
 
     # Bounded tool loop with circuit breaker
     breaker = CircuitBreaker()
+    action_retries = 0
+    last_tool_error: str | None = None
     for hop in range(MAX_TOOL_HOPS):
         action = _extract_action(reply)
         if action is None:
+            if action_retries < MAX_ACTION_RETRIES:
+                messages.append({"role": "user", "content": ACTION_RETRY_PROMPT})
+                logger.append("user", ACTION_RETRY_PROMPT)
+                action_retries += 1
+                reply = _stream_reply(client, messages)
+                print()
+                messages.append({"role": assistant_role, "content": reply})
+                logger.append("assistant", reply)
+                continue
             break
+
+        validation_error = validate_action_payload(action, registry)
+        if validation_error is not None:
+            messages.append({"role": "user", "content": validation_error})
+            logger.append("system", validation_error)
+            continue
 
         tool_name = action.get("tool", "")
         tool_args = str(action.get("args", []))
@@ -356,6 +376,7 @@ def _run_turn(
         rlog.event("tool_call", tool=tool_name, hop=hop)
         tool_result = _execute_tool(action, registry)
         is_error = tool_result.startswith("[TOOL ERROR]")
+        last_tool_error = tool_result if is_error else None
         breaker.record_turn(tool=tool_name, args=tool_args, output=tool_result, is_error=is_error)
         time.sleep(PROCESS_PAUSE_SECONDS)
 
@@ -368,6 +389,7 @@ def _run_turn(
         print(f"\n{tool_response}\n")
         messages.append({"role": assistant_role, "content": tool_response})
         logger.append("assistant", tool_response)
+        action_retries = 0
 
         continuation = (
             "Continue your answer using the tool result above. "
