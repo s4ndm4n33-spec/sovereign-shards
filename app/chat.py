@@ -54,6 +54,7 @@ from core.fivemasters import evaluate_code
 
 PROCESS_PAUSE_SECONDS = 0.2
 MAX_TOOL_HOPS = 5  # raised from 3 for multi-step agent work
+MAX_TOOL_OUTPUT_LINES = 60  # truncate tool output to protect 2048 context
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = BASE_DIR / "prompts"
@@ -110,6 +111,27 @@ def _extract_action(content: str) -> dict | None:
             return None
 
 
+def _truncate_tool_output(output: str, max_lines: int = MAX_TOOL_OUTPUT_LINES) -> str:
+    """Truncate large tool output to protect the 2048 context window.
+
+    Keeps the first and last lines so J sees structure and end-state,
+    with a hint to use run_search for specifics.
+    """
+    lines = output.splitlines(keepends=True)
+    if len(lines) <= max_lines:
+        return output
+    head_n = max_lines - 5  # most context at the top
+    tail_n = 5
+    head = "".join(lines[:head_n])
+    tail = "".join(lines[-tail_n:])
+    omitted = len(lines) - head_n - tail_n
+    return (
+        f"{head}"
+        f"\n[... {omitted} lines omitted — use run_search to find specific content ...]\n"
+        f"{tail}"
+    )
+
+
 def _execute_tool(action: dict, registry: ToolRegistry) -> str:
     tool_name = action.get("tool")
     tool_args = action.get("args", [])
@@ -119,7 +141,8 @@ def _execute_tool(action: dict, registry: ToolRegistry) -> str:
     if not isinstance(tool_args, list):
         return "[TOOL ERROR] Tool args must be a list."
 
-    return registry.execute(tool_name, tool_args)
+    result = registry.execute(tool_name, tool_args)
+    return _truncate_tool_output(result)
 
 
 # ── Streaming ───────────────────────────────────────────────────────

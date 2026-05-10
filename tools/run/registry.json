@@ -1,7 +1,7 @@
 {
   "run_read": {
-    "description": "Read a UTF-8 text file and print full contents.",
-    "args": ["path"],
+    "description": "Read a text file. Shows first 40 lines by default. For large files, use run_search instead.",
+    "args": ["path", "max_lines"],
     "side_effect": "read"
   },
   "run_write": {
