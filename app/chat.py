@@ -310,9 +310,14 @@ def _run_turn(
     logger.append("user", user_message)
 
     # Tier 1: reconstruct active context (pulls working + long-term memory)
-    messages[:] = reconstruct_context(
-        messages, task_hint=user_message, max_tokens=client.num_ctx,
-    )
+    # On small context windows (≤2048) memory injection costs more than
+    # it's worth — J can run_search memory files when needed instead.
+    if client.num_ctx > 2048:
+        messages[:] = reconstruct_context(
+            messages, task_hint=user_message, max_tokens=client.num_ctx,
+        )
+    else:
+        messages[:] = trim_context(messages, max_tokens=client.num_ctx)
 
     rlog.event("stage_start", stage="executor")
     assistant_role = _assistant_role(client)
