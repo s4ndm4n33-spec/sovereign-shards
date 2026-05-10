@@ -51,6 +51,7 @@ class RuntimeConfig:
     reasoning_budget: int
     reasoning_format: str
     stop_tokens: tuple[str, ...]
+    repeat_penalty: float
 
     @property
     def base_url(self) -> str:
@@ -94,10 +95,11 @@ def create_client() -> RuntimeConfig:
         token.strip()
         for token in os.getenv(
             "LLAMA_STOP_TOKENS",
-            "<|im_end|>,<|im_start|>",
+            "<|im_end|>,<|im_start|>,\\nYou:,\\nUnderstood.",
         ).split(",")
         if token.strip()
     )
+    repeat_penalty = float(os.getenv("LLAMA_REPEAT_PENALTY", "1.3"))
 
     # ── Safety clamp: prevent num_predict from starving context budget ──
     # On small context windows (≤2048), reserving 1024 for generation
@@ -146,4 +148,5 @@ def create_client() -> RuntimeConfig:
         reasoning_budget=reasoning_budget,
         reasoning_format=reasoning_format,
         stop_tokens=stop_tokens,
+        repeat_penalty=repeat_penalty,
     )
