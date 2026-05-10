@@ -36,7 +36,7 @@ class ScriptTool:
         for arg in normalized:
             key = arg["name"]
             value = mapped.get(key)
-            if key == "stdin":
+            if key in ("stdin", "command", "cmd", "code", "json_payload"):
                 stdin_value = "" if value is None else str(value)
             elif value is not None:
                 cli_args.append(str(value))
