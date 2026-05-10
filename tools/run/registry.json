@@ -1,7 +1,7 @@
 {
   "run_read": {
     "description": "Read a text file. Shows first 40 lines by default. For large files, use run_search instead.",
-    "args": ["path", "max_lines"],
+    "args": ["path", {"name": "max_lines", "type": "str", "required": false, "default": "40"}],
     "side_effect": "read"
   },
   "run_write": {
@@ -41,7 +41,8 @@
       {"name": "path", "type": "str", "required": false, "default": "."},
       {"name": "--ext", "type": "str", "required": false}
     ],
-    "side_effect": "read"
+    "side_effect": "read",
+    "timeout_seconds": 60
   },
   "run_tree": {
     "description": "Recursive directory tree listing. Args: [path] [--depth N]. Default depth 4.",
