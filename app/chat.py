@@ -336,21 +336,29 @@ def _run_turn(
     # Bounded tool loop with circuit breaker
     breaker = CircuitBreaker()
     action_retries = 0
-    successful_hops = 0  # track THIS turn's tool calls (not historical)
     last_tool_error: str | None = None
+    turn_tool_calls = 0  # per-turn counter (not cumulative across turns)
     for hop in range(MAX_TOOL_HOPS):
         action = _extract_action(reply)
         if action is None:
-            if action_retries < MAX_ACTION_RETRIES:
-                messages.append({"role": "user", "content": ACTION_RETRY_PROMPT})
-                logger.append("user", ACTION_RETRY_PROMPT)
-                action_retries += 1
-                reply = _stream_reply(client, messages)
-                print()
-                messages.append({"role": assistant_role, "content": reply})
-                logger.append("assistant", reply)
-                continue
-            break
+            # If J gave a substantive answer (not just "Understood" or a
+            # stub), accept it — don't force a tool call on pure-chat turns.
+            stripped_reply = reply.strip()
+            is_substantive = (
+                len(stripped_reply) > 40
+                and not stripped_reply.lower().startswith("understood")
+                and "ACTION:" not in stripped_reply
+            )
+            if is_substantive or action_retries >= MAX_ACTION_RETRIES:
+                break
+            messages.append({"role": "user", "content": ACTION_RETRY_PROMPT})
+            logger.append("user", ACTION_RETRY_PROMPT)
+            action_retries += 1
+            reply = _stream_reply(client, messages)
+            print()
+            messages.append({"role": assistant_role, "content": reply})
+            logger.append("assistant", reply)
+            continue
 
         validation_error = validate_action_payload(action, registry)
         if validation_error is not None:
@@ -411,13 +419,9 @@ def _run_turn(
         logger.append("assistant", tool_response)
         action_retries = 0
 
-        # ── Tool budget tracking ────────────────────────────────────
-        # Increment the LOCAL counter — not a scan of all messages.
-        # Scanning messages would count tool calls from earlier turns
-        # and falsely exhaust the budget on multi-turn conversations.
-        if not is_error:
-            successful_hops += 1
-        remaining = tool_budget - successful_hops
+        # ── Tool budget tracking (per-turn, not cumulative) ─────────
+        turn_tool_calls += 1
+        remaining = tool_budget - turn_tool_calls
 
         if remaining <= 0:
             # Budget spent — force answer, no more tools
@@ -427,12 +431,12 @@ def _run_turn(
             )
         elif remaining == 1:
             continuation = (
-                f"[{successful_hops}/{tool_budget} tool calls used, 1 remaining] "
+                f"[{turn_tool_calls}/{tool_budget} tool calls used, 1 remaining] "
                 "Continue. You may call one more tool if needed, then respond."
             )
         else:
             continuation = (
-                f"[{successful_hops}/{tool_budget} tool calls used, {remaining} remaining] "
+                f"[{turn_tool_calls}/{tool_budget} tool calls used, {remaining} remaining] "
                 "Continue. Call another tool if needed, or respond to the user."
             )
 
@@ -964,21 +968,9 @@ def run_chat(
 
             try:
                 budget = route_result.tool_budget
-                # ── Plan/Execute mode: prepend planning instruction ─
-                # When the router detects a multi-step request, inject
-                # a lightweight "plan first" prefix.  This costs ~30
-                # tokens but dramatically improves step sequencing on
-                # 7B models.  Single-step requests are untouched.
-                effective_message = user_message
-                if route_result.mode_hint == "plan" and budget >= 2:
-                    effective_message = (
-                        "[PLAN MODE] Break this into numbered steps first, "
-                        "then execute step 1.\n\n" + user_message
-                    )
-
                 print(f"\nJ.: ", end="", flush=True)
                 _run_turn(
-                    client, messages, logger, rlog, effective_message, registry, autonomy_mode,
+                    client, messages, logger, rlog, user_message, registry, autonomy_mode,
                     tool_budget=budget,
                 )
                 # Weight-triggered reflection
