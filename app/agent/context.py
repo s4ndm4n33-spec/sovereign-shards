@@ -102,7 +102,9 @@ def preflight_trim(
       2. Aggressive trim (cap every message, keep fewer tails).
       3. Emergency trim (system + last 2 messages only).
     """
-    budget = max(256, max_ctx - reserve_for_reply)
+    # 10% safety margin accounts for tokenizer estimation drift
+    safety_margin = max(64, int(max_ctx * 0.10))
+    budget = max(256, max_ctx - reserve_for_reply - safety_margin)
     current = estimate_messages_tokens(messages)
 
     if current <= budget:
