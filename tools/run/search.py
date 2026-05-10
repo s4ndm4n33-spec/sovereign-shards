@@ -47,6 +47,16 @@ def main() -> None:
         if idx + 1 < len(sys.argv):
             ext_filter = sys.argv[idx + 1]
 
+    # ── Fault tolerance: detect reversed args ──────────────────────
+    # 7B models often swap pattern and path.  If arg1 looks like a
+    # file/dir that exists and arg2 does NOT exist as a path, swap.
+    if (
+        search_path != "."
+        and os.path.exists(pattern)
+        and not os.path.exists(search_path)
+    ):
+        pattern, search_path = search_path, pattern
+
     try:
         regex = re.compile(pattern)
     except re.error as exc:
