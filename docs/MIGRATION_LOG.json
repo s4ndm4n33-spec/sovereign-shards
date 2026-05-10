@@ -2,7 +2,7 @@
   "project": "sovereign-shards",
   "generated_at": "2026-05-10",
   "purpose": "Portable migration log for recreating and auditing the ToolRegistry + chat-loop integration in another environment.",
-  "source_branch": "work",
+  "source_branch": "main",
   "milestones": [
     {
       "id": "M1",
@@ -155,7 +155,10 @@
     "commands": [
       "python -m compileall run.py app",
       "python -m compileall app/chat.py",
-      "python -m compileall app/agent/tool_registry.py"
+      "python -m compileall app/agent/tool_registry.py",
+      "python -m compileall app/agent/tool_schema.py",
+      "python -m compileall app/agent/script_tool.py",
+      "python -m compileall app/agent/tool_router.py"
     ],
     "expected": "No syntax errors."
   },
@@ -164,6 +167,9 @@
     "Ensure tools/run/registry.json matches available run_ tool names.",
     "Verify /tools output lists both built-ins and run_* tools.",
     "Verify 'build starter_agent now' scaffolds folder and logs output.",
-    "Verify file writes over 4GB are rejected with explicit error."
+    "Verify file writes over 4GB are rejected with explicit error.",
+    "Verify route_tool_call() returns structured {ok, output/error} for known and unknown tools.",
+    "Verify side-effect restrictions block exec/network tools when restricted.",
+    "Verify setup.bat downloads Python, llama.cpp, model, and creates .env on a clean machine."
   ]
 }
