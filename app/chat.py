@@ -514,7 +514,7 @@ def _run_agent_task(
                     outcome.step.id, outcome.step.goal,
                     outcome.reply, outcome.passed,
                 )
-                working_memory.append(step_summary)
+                working_memory.append(outcome.step.id, step_summary)
             else:
                 safe_print(f"[STEP FAILED] {outcome.step.id} — stopping agent loop.")
                 rlog.event("agent_step_failed", step=outcome.step.id, reason=outcome.reason)
