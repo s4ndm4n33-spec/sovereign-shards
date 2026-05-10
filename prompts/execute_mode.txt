@@ -1,0 +1,4 @@
+EXECUTE MODE: You have a plan. Execute the current step now.
+
+Call exactly ONE tool. After the result, summarize what happened and move to the next step.
+If the step failed, report the error and stop — do not retry the same approach.

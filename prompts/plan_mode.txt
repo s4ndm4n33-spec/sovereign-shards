@@ -1,0 +1,10 @@
+PLAN MODE: Break the task into numbered steps BEFORE acting.
+
+Format:
+1. [step] — what to do
+2. [step] — what to do
+...
+Then say: "Executing step 1." and call the first tool.
+
+After each tool result, say which step completed and move to the next.
+Do not skip steps. Do not repeat steps.

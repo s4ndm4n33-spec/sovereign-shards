@@ -336,6 +336,7 @@ def _run_turn(
     # Bounded tool loop with circuit breaker
     breaker = CircuitBreaker()
     action_retries = 0
+    successful_hops = 0  # track THIS turn's tool calls (not historical)
     last_tool_error: str | None = None
     for hop in range(MAX_TOOL_HOPS):
         action = _extract_action(reply)
@@ -411,7 +412,11 @@ def _run_turn(
         action_retries = 0
 
         # ── Tool budget tracking ────────────────────────────────────
-        successful_hops = sum(1 for m in messages if m.get("content", "").startswith("[TOOL EXECUTION]") and "[TOOL ERROR]" not in m.get("content", ""))
+        # Increment the LOCAL counter — not a scan of all messages.
+        # Scanning messages would count tool calls from earlier turns
+        # and falsely exhaust the budget on multi-turn conversations.
+        if not is_error:
+            successful_hops += 1
         remaining = tool_budget - successful_hops
 
         if remaining <= 0:
@@ -959,9 +964,21 @@ def run_chat(
 
             try:
                 budget = route_result.tool_budget
+                # ── Plan/Execute mode: prepend planning instruction ─
+                # When the router detects a multi-step request, inject
+                # a lightweight "plan first" prefix.  This costs ~30
+                # tokens but dramatically improves step sequencing on
+                # 7B models.  Single-step requests are untouched.
+                effective_message = user_message
+                if route_result.mode_hint == "plan" and budget >= 2:
+                    effective_message = (
+                        "[PLAN MODE] Break this into numbered steps first, "
+                        "then execute step 1.\n\n" + user_message
+                    )
+
                 print(f"\nJ.: ", end="", flush=True)
                 _run_turn(
-                    client, messages, logger, rlog, user_message, registry, autonomy_mode,
+                    client, messages, logger, rlog, effective_message, registry, autonomy_mode,
                     tool_budget=budget,
                 )
                 # Weight-triggered reflection
