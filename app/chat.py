@@ -591,6 +591,7 @@ def run_chat(
     logger = SessionLogger(model=f"{client.backend}:{client.model}")
     rlog = RuntimeJsonLogger(session_id=logger.session_id)
     registry = ToolRegistry(BASE_DIR)
+    registry.restrictions["exec"] = True  # shard is local — exec tools are safe
     messages = build_history(client)
     local_server = LocalLlamaServer(client)
 
