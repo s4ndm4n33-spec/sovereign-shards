@@ -1,24 +1,34 @@
 {
   "project": "Sovereign Shards",
   "build_timestamp": "2026-04-24T15:00:33.6018063-05:00",
-  "source_workspace": "C:\\Users\\music\\Documents\\New project",
+  "updated_at": "2026-05-10T00:00:00-05:00",
+  "source_workspace": "E:\\dev shard",
   "local_resources_used": [
-    "C:\\Jarvis_Sovereign\\Models\\GGUF\\J.gguf",
-    "C:\\Users\\music\\BLUE-J-SOVEREIGN\\bin\\llama-server.exe",
-    "C:\\Users\\music\\BLUE-J-SOVEREIGN\\bin\\llama-cli.exe",
-    "E:\\shard\\tools\\exec.py",
-    "E:\\shard\\tools\\read.py",
-    "E:\\shard\\tools\\write.py",
-    "E:\\shard\\tools\\scaffold.py",
-    "prompts\\system.txt",
-    "prompts\\developer.txt"
+    "models\\J-00001-of-00002.gguf",
+    "models\\J-00002-of-00002.gguf",
+    "model-server\\server.exe",
+    "model-server\\llama.exe",
+    "tools\\run\\exec.py",
+    "tools\\run\\read.py",
+    "tools\\run\\write.py",
+    "tools\\run\\scaffold.py",
+    "prompts\\J-system.txt",
+    "prompts\\J-chat-template.jinja"
   ],
   "default_runtime": {
     "provider": "llama_cpp",
     "model": "J",
-    "server_binary": "E:\\dev shard\\model-server\\server.exe",
-    "cli_binary": "E:\\dev shard\\model-server\\llama.exe",
-    "model_path": "E:\\dev shard\\models\\J.gguf"
+    "server_binary": "model-server\\server.exe",
+    "cli_binary": "model-server\\llama.exe",
+    "model_path": "models\\J-00001-of-00002.gguf"
+  },
+  "model_info": {
+    "name": "Qwen2.5-Coder-7B-Instruct",
+    "quantization": "Q4_K_M",
+    "shards": 2,
+    "format": "GGUF",
+    "context_window": 2048,
+    "generation_budget": 256
   },
   "standalone_ready_at": "2026-04-24T19:20:01.0890088-05:00",
   "model_hash_verified_at": "2026-04-24T19:44:16-05:00",

@@ -122,21 +122,6 @@ def _execute_tool(action: dict, registry: ToolRegistry) -> str:
     return registry.execute(tool_name, tool_args)
 
 
-def _format_hardware_context() -> str:
-    snapshot = get_system_snapshot()
-    if snapshot.get("status") != "ONLINE":
-        return "[Sovereign Identity Unavailable]"
-
-    return (
-        "\n[Sovereign Identity Verified]\n"
-        f"Node: {snapshot['network']['node_name']}\n"
-        f"CPU: {snapshot['host_machine']['cpu']}\n"
-        f"Memory: {snapshot['live_metrics']['ram_usage_percent']} used of "
-        f"{snapshot['host_machine']['ram_total_gb']}GB\n"
-        f"Storage: {snapshot['live_metrics']['disk_free_gb']}GB free on local disk.\n"
-    )
-
-
 # ── Streaming ───────────────────────────────────────────────────────
 
 
