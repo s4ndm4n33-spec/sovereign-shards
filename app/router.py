@@ -24,6 +24,7 @@ class RouteResult:
     tool_name: str = ""      # which tool was dispatched
     tool_args: list = None   # args passed
     output: str = ""         # tool output (if handled)
+    tool_budget: int = 1     # max tool calls the LLM gets this turn
 
     def __post_init__(self):
         if self.tool_args is None:
@@ -113,8 +114,46 @@ def route(user_input: str, registry: "ToolRegistry") -> RouteResult:
                 return RouteResult(handled=True, tool_name="read_file",
                                    tool_args=[path], output=output)
 
-    # ── 7. No match → fall through to LLM ──────────────────────────
-    return RouteResult(handled=False)
+    # ── 7. No match → classify complexity and set tool budget ───────
+    budget = _classify_budget(stripped, lowered)
+    return RouteResult(handled=False, tool_budget=budget)
+
+
+# ── Budget classifier ───────────────────────────────────────────────
+
+# Keywords that signal multi-step work (each match adds to budget)
+_MULTI_STEP_KEYWORDS = (
+    "then", "and then", "after that", "next", "also",
+    "compare", "both", "each", "all",
+    "update", "fix", "refactor", "change", "modify", "replace",
+)
+
+# Keywords that signal single-tool work (budget stays at 1)
+_SINGLE_KEYWORDS = (
+    "read", "show", "search", "find", "list", "what", "who",
+    "explain", "tell me", "describe", "check",
+)
+
+
+def _classify_budget(text: str, lowered: str) -> int:
+    """Estimate how many tool calls this prompt needs. Zero inference cost."""
+
+    # Agent mode gets full budget
+    if lowered.startswith("/plan"):
+        return 5
+
+    # Count multi-step signals
+    multi_signals = sum(1 for kw in _MULTI_STEP_KEYWORDS if kw in lowered)
+
+    # Count distinct tool-like verbs (read + search = 2 tools)
+    tool_verbs = sum(1 for v in ("read", "search", "write", "run", "bash", "list", "tree")
+                     if v in lowered)
+
+    if multi_signals >= 2 or tool_verbs >= 3:
+        return 3  # complex multi-step
+    if multi_signals >= 1 or tool_verbs >= 2:
+        return 2  # moderate
+    return 1      # simple single-tool or conversational
 
 
 # ── Internal helpers ────────────────────────────────────────────────
