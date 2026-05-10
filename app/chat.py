@@ -53,7 +53,8 @@ from app.router import route as fast_route
 from core.fivemasters import evaluate_code
 
 PROCESS_PAUSE_SECONDS = 0.2
-MAX_TOOL_HOPS = 5  # raised from 3 for multi-step agent work
+MAX_TOOL_HOPS = 5  # hard ceiling — never exceed this
+MAX_TOOL_BUDGET = int(os.getenv("J_TOOL_BUDGET", "3"))  # approved calls per turn
 MAX_TOOL_OUTPUT_LINES = 60  # truncate tool output to protect 2048 context
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -407,16 +408,44 @@ def _run_turn(
         logger.append("assistant", tool_response)
         action_retries = 0
 
-        continuation = (
-            "Continue your answer using the tool result above. "
-            "Only invoke another tool if absolutely required."
-        )
+        # ── Tool budget tracking ────────────────────────────────────
+        successful_hops = sum(1 for m in messages if m.get("content", "").startswith("[TOOL EXECUTION]") and "[TOOL ERROR]" not in m.get("content", ""))
+        remaining = MAX_TOOL_BUDGET - successful_hops
+
+        if remaining <= 0:
+            # Budget spent — force answer, no more tools
+            continuation = (
+                f"[ACTION COMPLETE — {MAX_TOOL_BUDGET}/{MAX_TOOL_BUDGET} tool calls used] "
+                "Respond to the user now. Do not call another tool."
+            )
+        elif remaining == 1:
+            continuation = (
+                f"[{successful_hops}/{MAX_TOOL_BUDGET} tool calls used, 1 remaining] "
+                "Continue. You may call one more tool if needed, then respond."
+            )
+        else:
+            continuation = (
+                f"[{successful_hops}/{MAX_TOOL_BUDGET} tool calls used, {remaining} remaining] "
+                "Continue. Call another tool if needed, or respond to the user."
+            )
+
         messages.append({"role": "user", "content": continuation})
         logger.append("user", continuation)
 
         time.sleep(PROCESS_PAUSE_SECONDS)
         reply = _stream_reply(client, messages)
         print()
+
+        # ── Post-generation trim: strip runaway tool calls ─────────
+        # If budget is spent and J still generates an ACTION:, or if
+        # J answered and then tacked on a second ACTION:, trim it.
+        if remaining <= 0 and "ACTION:" in reply:
+            answer_part = reply.split("ACTION:", 1)[0].rstrip()
+            if len(answer_part) > 20:
+                reply = answer_part
+            else:
+                reply = "[STOPPED] Tool budget exhausted."
+
         messages.append({"role": assistant_role, "content": reply})
         logger.append("assistant", reply)
 
