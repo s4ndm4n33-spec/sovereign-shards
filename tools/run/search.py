@@ -48,12 +48,14 @@ def main() -> None:
             ext_filter = sys.argv[idx + 1]
 
     # ── Fault tolerance: detect reversed args ──────────────────────
-    # 7B models often swap pattern and path.  If arg1 looks like a
-    # file/dir that exists and arg2 does NOT exist as a path, swap.
+    # 7B models often swap pattern and path.  If arg1 is an existing
+    # file and arg2 is NOT a file, the user almost certainly meant
+    # arg1 as the path.  Use isfile (not exists) so directories like
+    # python/ don't fool the check.
     if (
         search_path != "."
-        and os.path.exists(pattern)
-        and not os.path.exists(search_path)
+        and os.path.isfile(pattern)
+        and not os.path.isfile(search_path)
     ):
         pattern, search_path = search_path, pattern
 
