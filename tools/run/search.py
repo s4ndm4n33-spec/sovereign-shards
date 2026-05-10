@@ -9,6 +9,12 @@ import os
 import re
 import sys
 
+# ── Windows cp1252 safety ─────────────────────────────────────────
+# Prevent UnicodeEncodeError when printing lines with box-drawing
+# or other non-ASCII chars on Windows terminals.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 MAX_RESULTS = 200
 MAX_LINE_LEN = 300
 
