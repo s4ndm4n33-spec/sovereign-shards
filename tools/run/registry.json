@@ -35,8 +35,12 @@
     "side_effect": "exec"
   },
   "run_search": {
-    "description": "Regex search across files. Args: pattern [path] [--ext .py]. Respects .gitignore.",
-    "args": ["pattern", "path", "--ext"],
+    "description": "Search for text in files. Args: pattern [path]. Example: run_search version setup.bat",
+    "args": [
+      "pattern",
+      {"name": "path", "type": "str", "required": false, "default": "."},
+      {"name": "--ext", "type": "str", "required": false}
+    ],
     "side_effect": "read"
   },
   "run_tree": {

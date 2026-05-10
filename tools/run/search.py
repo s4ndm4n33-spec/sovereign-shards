@@ -53,6 +53,29 @@ def main() -> None:
         print(f"[SEARCH ERROR] Invalid regex: {exc}")
         return
 
+    # Handle single-file search (not just directories)
+    if os.path.isfile(search_path):
+        hits = 0
+        try:
+            with open(search_path, "r", encoding="utf-8", errors="ignore") as f:
+                for lineno, line in enumerate(f, 1):
+                    if regex.search(line):
+                        display = line.rstrip()
+                        if len(display) > MAX_LINE_LEN:
+                            display = display[:MAX_LINE_LEN] + "..."
+                        print(f"{search_path}:{lineno}: {display}")
+                        hits += 1
+                        if hits >= MAX_RESULTS:
+                            print(f"... [TRUNCATED at {MAX_RESULTS} results]")
+                            return
+        except (OSError, UnicodeDecodeError):
+            pass
+        if hits == 0:
+            print(f"[SEARCH] No matches for /{pattern}/ in {search_path}")
+        else:
+            print(f"\n[SEARCH] {hits} match(es) found.")
+        return
+
     ignore_patterns = _load_gitignore(search_path) + [
         ".git", "__pycache__", "*.pyc", "node_modules",
     ]
