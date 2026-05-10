@@ -36,13 +36,13 @@ class ScriptTool:
         for arg in normalized:
             key = arg["name"]
             value = mapped.get(key)
-            if key in ("stdin", "command", "cmd", "code", "json_payload"):
+            if key == "stdin":
                 stdin_value = "" if value is None else str(value)
             elif value is not None:
                 cli_args.append(str(value))
 
         try:
-            result = subprocess.run([sys.executable, str(self.script_path), *cli_args], input=stdin_value, text=True, capture_output=True, timeout=self.spec.timeout_seconds, check=False)
+            result = subprocess.run([sys.executable, str(self.script_path), *cli_args], input=stdin_value, encoding="utf-8", errors="replace", capture_output=True, timeout=self.spec.timeout_seconds, check=False)
         except subprocess.TimeoutExpired:
             err = f"tool '{self.spec.name}' timed out after {self.spec.timeout_seconds}s"
             return f"[TOOL ERROR] {err}" if legacy_mode else {"ok": False, "error": err}
