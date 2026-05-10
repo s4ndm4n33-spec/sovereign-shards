@@ -25,8 +25,8 @@
     "side_effect": "write"
   },
   "run_bash": {
-    "description": "Execute a shell command with timeout. Pass command on stdin. Optional arg: timeout_seconds.",
-    "args": ["command"],
+    "description": "Execute a shell command with timeout.",
+    "args": [{"name": "stdin", "type": "str", "required": true}],
     "side_effect": "exec"
   },
   "run_git": {
