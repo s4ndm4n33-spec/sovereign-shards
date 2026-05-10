@@ -3,7 +3,7 @@
 > For the next agent, developer, or collaborator picking up this project.
 > Read this entire document before writing a single line of code.
 
-**Last updated:** 2026-05-09
+**Last updated:** 2026-05-10
 **Previous agent:** Viktor (getviktor.com) — 30 commits across a 48-hour sprint
 **Repo:** github.com/s4ndm4n33-spec/sovereign-shards
 **Branch:** `work` (active development branch at the time of this audit).
@@ -19,6 +19,24 @@ Verified updates:
 - `app/chat.py` line-count annotation updated (926 lines).
 - Test-suite summary wording updated to reflect current `tests/` layout.
 - `docs/MIGRATION_LOG.json` refreshed to match this handoff context.
+
+
+
+## 0.1 TOOL LAYER REBUILD NOTE (2026-05-10)
+
+A full tool-layer rebuild landed on **May 10, 2026** to make the registry deterministic, dict-compatible, schema-aware, side-effect-aware, and router-compatible for both modern and legacy execution paths.
+
+Delivered components:
+- `app/agent/tool_schema.py`: canonical `ToolSpec`, spec normalisation, and strict argument validation (required/type/unknown checks).
+- `app/agent/script_tool.py`: subprocess wrapper for `tools/run/*.py` with timeout control, stdin support, merged stdout/stderr, and structured `{"ok": ...}` responses.
+- `app/agent/tool_router.py`: `route_tool_call()` with existence checks, schema validation, side-effect enforcement, safe execution, and non-crashing structured returns.
+- `app/agent/tool_registry.py`: dict-like registry API (`__getitem__`, `get`, `__contains__`, `keys`), deterministic `as_prompt_block()`, restrictions gate, script auto-discovery, and legacy `execute(tool_name, tool_args)` JSON shim.
+
+Operational impact:
+- Fixes the legacy `.get()` crash class by exposing dictionary semantics directly on registry objects.
+- Unifies tool-call validation across router and compatibility paths.
+- Introduces explicit side-effect restrictions (`read/write/exec/network`) for sovereign-safe default operation.
+- Preserves llama.cpp-era positional tool invocation while producing deterministic stringified JSON outputs.
 
 ## 1. WHAT THIS IS
 

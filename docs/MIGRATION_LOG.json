@@ -1,6 +1,6 @@
 {
   "project": "sovereign-shards",
-  "generated_at": "2026-05-09",
+  "generated_at": "2026-05-10",
   "purpose": "Portable migration log for recreating and auditing the ToolRegistry + chat-loop integration in another environment.",
   "source_branch": "work",
   "milestones": [
@@ -115,6 +115,31 @@
       "compatibility_notes": [
         "Documentation reflects registry-driven tool model and quick-build behavior."
       ]
+    },
+    {
+      "id": "M7",
+      "title": "Rebuild deterministic sovereign tool layer",
+      "summary": "Replaced the tool layer with dict-compatible registry APIs, schema validation, side-effect enforcement, router execution, and legacy JSON shim compatibility.",
+      "files": [
+        "app/agent/tool_registry.py",
+        "app/agent/tool_schema.py",
+        "app/agent/script_tool.py",
+        "app/agent/tool_router.py"
+      ],
+      "actions": [
+        "Implement dict-like registry accessors (__getitem__, get, __contains__, keys)",
+        "Define full per-tool schemas with required/type/default metadata",
+        "Add strict validation for required fields, type correctness, and unknown arguments",
+        "Auto-discover tools/run/*.py with subprocess wrapping, timeout, stdin support, and structured output",
+        "Enforce side-effect restrictions via read/write/exec/network policy map",
+        "Add deterministic model prompt block formatting sorted by tool name",
+        "Add route_tool_call() for safe tool existence checks, validation, policy enforcement, and execution",
+        "Preserve legacy execute(tool_name, tool_args) by mapping list args to schema names and returning stringified JSON"
+      ],
+      "compatibility_notes": [
+        "Maintains legacy llama.cpp tool loop compatibility while enabling structured router calls.",
+        "Structured return format is deterministic and JSON-friendly for both modern and compatibility paths."
+      ]
     }
   ],
   "migration_order": [
@@ -123,7 +148,8 @@
     "M4",
     "M5",
     "M3",
-    "M6"
+    "M6",
+    "M7"
   ],
   "validation": {
     "commands": [
