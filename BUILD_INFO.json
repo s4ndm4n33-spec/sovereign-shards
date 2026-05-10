@@ -1,7 +1,7 @@
 {
   "project": "Sovereign Shards",
   "build_timestamp": "2026-04-24T15:00:33.6018063-05:00",
-  "updated_at": "2026-05-10T00:00:00-05:00",
+  "updated_at": "2026-05-10T03:45:00-05:00",
   "source_workspace": "E:\\dev shard",
   "local_resources_used": [
     "models\\J-00001-of-00002.gguf",
@@ -28,7 +28,17 @@
     "shards": 2,
     "format": "GGUF",
     "context_window": 2048,
-    "generation_budget": 256
+    "generation_budget": 256,
+    "repeat_penalty": 1.3,
+    "default_tool_budget": 3
+  },
+  "session_18_smoke_test": {
+    "date": "2026-05-10",
+    "L1_bash": "PASS",
+    "L2_read_reason": "PASS",
+    "L3_write": "PASS",
+    "L4_env_reason": "PASS",
+    "L5_search_reason": "PASS"
   },
   "standalone_ready_at": "2026-04-24T19:20:01.0890088-05:00",
   "model_hash_verified_at": "2026-04-24T19:44:16-05:00",

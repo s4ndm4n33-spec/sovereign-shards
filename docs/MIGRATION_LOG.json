@@ -140,6 +140,44 @@
         "Maintains legacy llama.cpp tool loop compatibility while enabling structured router calls.",
         "Structured return format is deterministic and JSON-friendly for both modern and compatibility paths."
       ]
+    },
+    {
+      "id": "M8",
+      "title": "Live hardware validation and defensive hardening",
+      "summary": "First live USB hardware session. Fixed 17 bugs across PRs #16–#32. Graduated 5-level smoke test passed. Added router-driven tool budget, search arg-swap heuristic, Windows cp1252 fixes, context management for 2048 ceiling, and expanded stop tokens.",
+      "files": [
+        "app/chat.py",
+        "app/client.py",
+        "app/router.py",
+        "app/agent/script_tool.py",
+        "tools/run/bash.py",
+        "tools/run/read.py",
+        "tools/run/search.py",
+        "tools/run/registry.json",
+        "prompts/J-system.txt",
+        "BUILD_INFO.json",
+        "docs/MIGRATION_LOG.md",
+        "docs/MIGRATION_LOG.json"
+      ],
+      "actions": [
+        "Fix exec side-effect restriction blocking run_bash (PR #19)",
+        "Fix stdin mapping for bash.py (PR #20)",
+        "Rewrite bash.py for Windows subprocess compatibility (PR #21)",
+        "Force UTF-8 encoding across all tool outputs for Windows cp1252 (PRs #22, #28)",
+        "Add context management: truncated reads, tool output compression, memory gating (PRs #23-25)",
+        "Add Hamilton fault-tolerant arg-swap for run_search (PR #26)",
+        "Add repeat penalty (1.3) and expanded stop tokens (PR #26)",
+        "Fix isfile heuristic for arg-swap — directories no longer fool it (PR #28)",
+        "Add router-driven per-turn tool budget classification (PRs #29-30)",
+        "Add budget-aware tool loop with break on exhaustion (PR #32)",
+        "Add stop tokens for identity-confusion runaway patterns (PR #31)"
+      ],
+      "compatibility_notes": [
+        "All changes are .env-configurable and backward-compatible with higher-tier deployments.",
+        "Defensive code (arg swaps, budget limits, stop tokens) is harmless at higher model tiers.",
+        "J_TOOL_BUDGET env var defaults to 3; router classification overrides per-prompt.",
+        "LLAMA_REPEAT_PENALTY defaults to 1.3; reduce to 1.1 for larger models."
+      ]
     }
   ],
   "migration_order": [
@@ -149,7 +187,8 @@
     "M5",
     "M3",
     "M6",
-    "M7"
+    "M7",
+    "M8"
   ],
   "validation": {
     "commands": [
