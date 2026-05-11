@@ -8,6 +8,7 @@
   <img src="https://img.shields.io/badge/cloud-none-critical?style=for-the-badge" alt="No Cloud" />
   <img src="https://img.shields.io/badge/deps-2-yellow?style=for-the-badge" alt="2 Dependencies" />
   <img src="https://img.shields.io/badge/tests-147%2B_passing-success?style=for-the-badge" alt="147+ Tests" />
+  <img src="https://img.shields.io/badge/security-defence_suite-blueviolet?style=for-the-badge" alt="Defence Suite" />
 </p>
 
 <h1 align="center">Sovereign Shards — J</h1>
@@ -65,7 +66,8 @@ Think of it as **Codex or Claude Code, but it runs off a Kingston USB stick** in
 |---------|-------------|
 | 🧠 **Plan → Execute → Verify** | DAG-based task planner with dependency resolution, parallel execution, and automatic verification |
 | ⚡ **Fast Command Router** | Regex/keyword dispatcher handles shell, file, and code operations at zero inference cost — model only called when language understanding is needed |
-| 🔧 **18+ Built-In Dev Tools** | File editing, bash, git, search, tree, test, SQL, integrity hashing — all auto-discovered from `tools/run/` |
+| 🔧 **21+ Built-In Dev Tools** | File editing, bash, git, search, tree, test, SQL, integrity hashing, security audit — all auto-discovered from `tools/run/` |
+| 🛡️ **Defence Suite** | Three-layer security toolkit: SHIELD (shard self-defence), SCAN (host security audit), BRIDGE (remediation). Portable air-gapped security auditor — plug into any machine, scan, fix, verify |
 | 🔨 **Inference Tool Forge** | "Build a tool for X" → J researches the domain, generates code, validates in sandbox, and hot-registers the new tool mid-session |
 | 💾 **3-Tier Memory System** | Active context reconstruction + rolling working memory + persistent long-term memory with BM25 retrieval |
 | 🏛️ **The Five Masters** | AST-powered code governance — 5 engineering dimensions, 8 deterministic transforms, zero inference cost detection |
@@ -135,6 +137,40 @@ The engineering philosophy that governs all code quality decisions. Not a linter
 
 ---
 
+## 🛡️ Defence Suite
+
+A three-layer, air-gapped security toolkit. Plug J into any machine, audit it, generate a fix script, re-scan to verify. Zero deps, zero network, zero telemetry.
+
+| Layer | Tool | What It Does |
+|-------|------|--------------|
+| **SHIELD** | `run_shield verify` | Verify shard file integrity against SHA-256 baseline |
+| | `run_shield baseline` | Generate/update integrity hashes for all tracked files |
+| | `run_shield autorun` | Detect and remove autorun.inf malware on USB root |
+| | `run_shield wipe <path>` | Secure-delete: 3-pass random overwrite then remove |
+| **SCAN** | `run_scan ports [target]` | TCP port scan against localhost or target IP |
+| | `run_scan creds [path]` | Regex sweep for exposed API keys, passwords, tokens |
+| | `run_scan security` | Windows security audit: firewall, UAC, Defender, RDP, updates |
+| | `run_scan network` | Network config: interfaces, listeners, shares, ARP spoofing |
+| | `run_scan services` | Service enumeration, flag risky running services |
+| | `run_scan permissions [path]` | File permission audit on sensitive files |
+| | `run_scan full [path]` | Run ALL audits, save findings to `logs/last_audit.json` |
+| **BRIDGE** | `run_bridge report` | Generate markdown remediation report with fix instructions |
+| | `run_bridge script` | Generate `.bat`/`.sh` fix script from findings |
+| | `run_bridge rescan` | Re-audit and compare: show fixed, new, and remaining issues |
+
+```
+Workflow:
+  run_scan full .          → Audit everything, save findings
+  run_bridge report        → Human-readable remediation report
+  run_bridge script        → Auto-generated fix script (review before running!)
+  [apply fixes]
+  run_bridge rescan        → Verify: what's fixed, what's new, what remains
+```
+
+All tools run *outside* the LLM loop — deterministic, zero inference cost. J calls them like any other tool. The suite is pure Python stdlib (~920 lines across 3 files).
+
+---
+
 ## 🧠 The Memory System
 
 J doesn't use a growing conversation that eventually overflows. It reconstructs a *fresh, minimal context* every turn:
@@ -185,7 +221,7 @@ sovereign-shards/
 ├── prompts/
 │   ├── J-system.txt            # System prompt (~130 tokens — lean)
 │   └── J-chat-template.jinja   # ChatML template for llama.cpp
-├── tools/run/                  # 18+ auto-discovered tool scripts
+├── tools/run/                  # 21+ auto-discovered tool scripts (incl. security suite)
 ├── tests/                      # 147+ tests (unittest, zero deps)
 ├── models/                     # GGUF model files (gitignored)
 ├── memory/                     # Runtime memory (gitignored)
@@ -242,6 +278,9 @@ Download `.gguf` files from [HuggingFace](https://huggingface.co) and place them
 | `/model <name>` | Hot-swap the active model mid-session |
 | `/refactor` | Multi-file AST analysis (generates HTML report) |
 | `/integrity` | SHA-256 hash all project files |
+| `run_shield <sub>` | Shard self-defence: `verify`, `baseline`, `autorun`, `wipe <path>` |
+| `run_scan <sub>` | Host security audit: `ports`, `creds`, `security`, `network`, `services`, `permissions`, `full` |
+| `run_bridge <sub>` | Remediation: `report` (markdown), `script` (fix .bat/.sh), `rescan` (before/after) |
 | `run.py --doctor` | Preflight diagnostics (checks model, server, RAM, config) |
 | `/help` | Show all commands |
 
@@ -261,8 +300,8 @@ Two packages. Everything else is Python standard library. That's a hard constrai
 ## 📊 Project Stats
 
 ```
-91 files  ·  63 Python modules  ·  2 dependencies  ·  18+ tools
-147+ tests  ·  8 AST transforms  ·  5 code quality masters
+94 files  ·  66 Python modules  ·  2 dependencies  ·  21+ tools
+147+ tests  ·  8 AST transforms  ·  5 code quality masters  ·  3-layer defence suite
 Zero network calls  ·  Zero telemetry  ·  100% local
 ```
 
