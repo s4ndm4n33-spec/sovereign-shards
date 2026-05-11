@@ -140,23 +140,28 @@ def warn_tag(msg: str = "") -> str:
 # ── Startup banner ────────────────────────────────────────────────
 
 def _arc_reactor() -> str:
-    """The arc reactor ASCII art — centrepiece of the banner."""
+    """The arc reactor ASCII art — centrepiece of the banner.
+
+    Uses only single-width characters (ASCII / \\ | plus box-drawing)
+    to avoid double-width rendering on Windows cmd.exe fonts.
+    All rows 2-4 are 18 visible chars at indent 9 (center = 18).
+    Rows 1 & 5 are 15 chars at indent 11 (center = 18.5).
+    """
     if not COLOUR:
-        return r"""
-              ___________
-           /    _____    \
-          /   /  |||  \   \
-         |   | --+J+-- |   |
-          \   \  |||  /   /
-           \    -----    /
-              -----------
-"""
-    # Coloured version — blue reactor core, red/gold shell
+        return (
+            "           +-------------+\n"
+            "         +--/  -- || --  \\--+\n"
+            "         |  / --- J --- \\  |\n"
+            "         +--\\  -- || --  /--+\n"
+            "           +-------------+"
+        )
+    # Single combined ANSI code for bold white J (no nesting)
+    j = _c("1;97", "J")
     lines = []
     lines.append(red("           ╭") + dim("─────────────") + red("╮"))
-    lines.append(red("         ╭─") + deep_red("╌╌╌") + stark_blue("╱  ▏▕  ╲") + deep_red("╌╌╌") + red("─╮"))
-    lines.append(red("         │") + deep_red("╌╌") + stark_blue("╱  ──") + white(bold("J")) + stark_blue("──  ╲") + deep_red("╌╌") + red("│"))
-    lines.append(red("         ╰─") + deep_red("╌╌╌") + stark_blue("╲  ▏▕  ╱") + deep_red("╌╌╌") + red("─╯"))
+    lines.append(red("         ╭─") + deep_red("╌╌╌") + stark_blue("/  ||  \\") + deep_red("╌╌╌") + red("─╮"))
+    lines.append(red("         │") + deep_red("╌╌") + stark_blue(" / ── ") + j + stark_blue(" ── \\") + deep_red("╌╌") + red("│"))
+    lines.append(red("         ╰─") + deep_red("╌╌╌") + stark_blue("\\  ||  /") + deep_red("╌╌╌") + red("─╯"))
     lines.append(red("           ╰") + dim("─────────────") + red("╯"))
     return "\n".join(lines)
 
