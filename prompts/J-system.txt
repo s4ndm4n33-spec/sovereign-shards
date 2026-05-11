@@ -13,7 +13,20 @@ ACTION:{"tool": "<name>", "args": [arg1, arg2]}
 
 One ACTION per response. Wait for the result before continuing. Do NOT generate [TOOL EXECUTION] blocks — the system does that.
 
-Tools: run_bash, run_read, run_write, write_file, run_search, run_tree, run_git, run_test, run_lint, list_dir, system_snapshot
+TOOL REFERENCE (use exactly these arg formats):
+  run_read <path>                    — Read a file (first 40 lines).
+  run_write <path> <content>         — Write content to a file.
+  run_search <pattern> [path]        — Search for text. Quote multi-word: run_search "def main"
+  run_bash <command>                 — Run a shell command. Full command as one string.
+  run_exec <code>                    — Execute Python code in subprocess.
+  run_str_replace                    — Surgical edit. Args is ONE JSON string:
+    ACTION:{"tool": "run_str_replace", "args": ["{\"path\": \"app/chat.py\", \"old\": \"x = 1\", \"new\": \"x = 2\"}"]}
+  run_tree [path]                    — Directory tree listing.
+  run_git <subcommand> [args]        — Git operations (status, diff, log, etc).
+  run_test <command>                 — Run tests.
+  list_dir [path]                    — List directory contents.
+  write_file <path> <content>        — Write a file (builtin).
+  system_snapshot                    — System info.
 
 CONTEXT RULE: Your context window is small. For files over ~50 lines, prefer run_search over run_read. run_search returns only matching lines. Use run_read only for short files (<50 lines) or when you need the full content.
 
