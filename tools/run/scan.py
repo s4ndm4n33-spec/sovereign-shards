@@ -12,6 +12,7 @@ Subcommands:
 Usage:  python scan.py <subcommand> [args...]
 """
 
+import json
 import os
 import re
 import socket
@@ -69,7 +70,7 @@ def cmd_ports(target: str = "127.0.0.1") -> list[dict]:
 _CRED_PATTERNS = [
     (r"(?i)(password|passwd|pwd)\s*[=:]\s*\S+", "PASSWORD", "HIGH"),
     (r"(?i)(api[_-]?key|apikey)\s*[=:]\s*\S+", "API_KEY", "HIGH"),
-    (r"(?i)(secret|token)\s*[=:]\s*\S+", "SECRET/TOKEN", "HIGH"),
+    (r"(?i)\b(secret|token)\s*[=:]\s*\S+", "SECRET/TOKEN", "HIGH"),
     (r"(?i)(aws_access_key_id)\s*[=:]\s*\S+", "AWS_KEY", "CRITICAL"),
     (r"(?i)(aws_secret_access_key)\s*[=:]\s*\S+", "AWS_SECRET", "CRITICAL"),
     (r"ghp_[a-zA-Z0-9]{36}", "GITHUB_TOKEN", "CRITICAL"),
@@ -84,7 +85,24 @@ SCAN_EXTENSIONS = {".py", ".js", ".ts", ".json", ".yaml", ".yml", ".toml",
                    ".sh", ".bat", ".ps1", ".md"}
 SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "venv",
              "models", "model-server", "Lib", "Scripts", "site-packages"}
+# Defence suite's own source files — always skip (self-reference = false positive)
+_SELF_FILES = {"tools/run/scan.py", "tools/run/shield.py", "tools/run/bridge.py"}
 MAX_FILE_SIZE = 512 * 1024  # 512 KB
+
+
+def _is_false_positive(line: str) -> bool:
+    """Heuristic: skip lines that are code, not real credentials."""
+    s = line.strip()
+    # Regex pattern definitions (e.g. r"(?i)..." or r'...')
+    if 'r"' in s or "r'" in s:
+        return True
+    # Python function / class signatures (def emit(token: str))
+    if s.startswith("def ") or s.startswith("class "):
+        return True
+    # ALL_CAPS constants with simple integer values (CHARS_PER_TOKEN = 4)
+    if re.match(r"^[A-Z][A-Z0-9_]*\s*=\s*\d+\s*(#.*)?$", s):
+        return True
+    return False
 
 
 def cmd_creds(scan_path: str = ".") -> list[dict]:
@@ -107,13 +125,19 @@ def cmd_creds(scan_path: str = ".") -> list[dict]:
             except OSError:
                 continue
 
+            rel = os.path.relpath(full, scan_root).replace("\\", "/")
+            # Skip defence suite's own source (patterns are not credentials)
+            if rel in _SELF_FILES:
+                continue
+
             file_count += 1
             try:
                 with open(full, "r", encoding="utf-8", errors="ignore") as f:
                     for line_num, line in enumerate(f, 1):
+                        if _is_false_positive(line):
+                            continue
                         for pattern, cred_type, risk in _CRED_PATTERNS:
                             if re.search(pattern, line):
-                                rel = os.path.relpath(full, scan_root).replace("\\", "/")
                                 # Redact the actual value
                                 clean = line.strip()[:80]
                                 findings.append({
@@ -399,7 +423,7 @@ def cmd_full(scan_path: str = ".") -> None:
     all_findings: list[dict] = []
 
     print("=" * 60)
-    print("        SOVEREIGN SHARDS — FULL SECURITY AUDIT")
+    print("        SOVEREIGN SHARDS -- FULL SECURITY AUDIT")
     print("=" * 60)
     print()
 
