@@ -345,10 +345,17 @@ def _run_turn(
             # - budget=0 (pure chat): accept any non-stub answer
             # - budget>=1 (tools expected): retry — J should use a tool
             stripped_reply = reply.strip()
+            # "Understood" is only a stub if the reply is short.
+            # Long replies starting with "Understood, ..." are real answers
+            # (e.g. "Understood, I will proceed under the identity of J...")
+            is_understood_stub = (
+                stripped_reply.lower().startswith("understood")
+                and len(stripped_reply) < 60
+            )
             is_chat_answer = (
                 tool_budget == 0
                 and len(stripped_reply) > 20
-                and not stripped_reply.lower().startswith("understood")
+                and not is_understood_stub
                 and "ACTION:" not in stripped_reply
             )
             if is_chat_answer or action_retries >= MAX_ACTION_RETRIES:
