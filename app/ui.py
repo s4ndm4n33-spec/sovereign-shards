@@ -42,12 +42,33 @@ def _supports_colour() -> bool:
 
 COLOUR = _supports_colour()
 
+# Black background persists through every colour reset.
+# \033[0m alone resets bg to terminal default (often grey/white on Windows).
+# We always reset to \033[0;40m so the black bg sticks.
+_RESET = "\033[0;40m" if COLOUR else ""
+
 
 def _c(code: str, text: str) -> str:
     """Wrap text in ANSI colour code if supported."""
     if not COLOUR:
         return text
-    return f"\033[{code}m{text}\033[0m"
+    return f"\033[{code}m{text}{_RESET}"
+
+
+def init() -> None:
+    """Initialise the terminal for the shard UI.
+
+    Sets black background, clears the screen, and positions the cursor
+    at top-left. Call once at startup before the banner.
+    """
+    if not COLOUR:
+        return
+    # Set black background for the whole terminal
+    sys.stdout.write("\033[40m")      # bg black
+    sys.stdout.write("\033[97m")      # default text bright white
+    sys.stdout.write("\033[2J")       # clear entire screen (fills with bg)
+    sys.stdout.write("\033[H")        # cursor to top-left
+    sys.stdout.flush()
 
 
 # ── Colour helpers (Iron Man palette) ─────────────────────────────
@@ -266,12 +287,15 @@ def memory_status(entries: int, size_bytes: int) -> str:
 
 
 def shutdown_msg(transcript_path: str) -> str:
-    """Styled shutdown message."""
+    """Styled shutdown message and restore terminal defaults."""
     if COLOUR:
-        return (
+        msg = (
             f"\n  {dim('Session saved to')} {gold(transcript_path)}"
             f"\n  {red('▪')} {dim('Shard offline.')}\n"
         )
+        # Restore terminal to default colours so cmd.exe isn't stuck on black
+        msg += "\033[0m"
+        return msg
     return f"\nSession saved to {transcript_path}\nShard offline."
 
 
