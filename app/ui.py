@@ -155,7 +155,7 @@ def _arc_reactor() -> str:
     lines = []
     lines.append(red("           ╭") + dim("─────────────") + red("╮"))
     lines.append(red("         ╭─") + deep_red("╌╌╌") + stark_blue("╱  ▏▕  ╲") + deep_red("╌╌╌") + red("─╮"))
-    lines.append(red("        │") + deep_red("╌╌") + stark_blue("╱  ──") + white(bold("J")) + stark_blue("──  ╲") + deep_red("╌╌") + red("│"))
+    lines.append(red("         │") + deep_red("╌╌") + stark_blue("╱  ──") + white(bold("J")) + stark_blue("──  ╲") + deep_red("╌╌") + red("│"))
     lines.append(red("         ╰─") + deep_red("╌╌╌") + stark_blue("╲  ▏▕  ╱") + deep_red("╌╌╌") + red("─╯"))
     lines.append(red("           ╰") + dim("─────────────") + red("╯"))
     return "\n".join(lines)
