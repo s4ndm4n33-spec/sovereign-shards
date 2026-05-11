@@ -95,7 +95,46 @@ def build_history(client: RuntimeConfig):
     ]
 
 
+def _balanced_json(text: str, start: int) -> str | None:
+    """Extract the first balanced JSON object from *text* starting at *start*.
+
+    Counts braces outside of string literals so nested objects (e.g.
+    run_str_replace payloads) are handled correctly.  Returns ``None``
+    if no balanced object is found.
+    """
+    depth = 0
+    in_string = False
+    escape_next = False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == "\\" and in_string:
+            escape_next = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+    return None
+
+
 def _extract_action(content: str) -> dict | None:
+    """Parse an ACTION payload from the model response.
+
+    Handles three formats J may produce:
+      1. ACTION:{"tool": "...", "args": [...]}     (standard JSON)
+      2. ACTION:tool_name arg1 arg2                (bare / no-JSON)
+      3. ACTION:{...} [TOOL EXECUTION] ...         (hallucinated tail)
+    """
     if "ACTION:" not in content:
         return None
 
@@ -103,16 +142,34 @@ def _extract_action(content: str) -> dict | None:
     if not payload:
         return None
 
-    if match := re.search(r"\{.*\}", payload, flags=re.S):
-        payload = match.group(0)
+    # Strip hallucinated [TOOL …] blocks that J sometimes appends
+    for marker in ("[TOOL EXECUTION]", "[TOOL"):
+        idx = payload.find(marker)
+        if idx > 0:
+            payload = payload[:idx].rstrip()
 
-    try:
-        return loads(payload)
-    except JSONDecodeError:
-        try:
-            return ast.literal_eval(payload)
-        except Exception:
-            return None
+    # ── 1. Try balanced-brace JSON extraction ───────────────────────
+    brace = payload.find("{")
+    if brace != -1:
+        json_str = _balanced_json(payload, brace)
+        if json_str:
+            try:
+                return loads(json_str)
+            except JSONDecodeError:
+                try:
+                    return ast.literal_eval(json_str)
+                except Exception:
+                    pass
+
+    # ── 2. Fallback: ACTION:tool_name arg1 arg2 (no JSON wrapper) ──
+    parts = payload.split(None, 1)
+    if parts and re.match(r"^[a-z_][a-z0-9_]*$", parts[0]):
+        tool = parts[0]
+        rest = parts[1].strip() if len(parts) > 1 else ""
+        args = rest.split() if rest else []
+        return {"tool": tool, "args": args}
+
+    return None
 
 
 def _truncate_tool_output(output: str, max_lines: int = MAX_TOOL_OUTPUT_LINES) -> str:
@@ -144,6 +201,17 @@ def _execute_tool(action: dict, registry: ToolRegistry) -> str:
         return "[TOOL ERROR] Tool name is missing."
     if not isinstance(tool_args, list):
         return "[TOOL ERROR] Tool args must be a list."
+
+    # Strip wrapping quotes from string args — J often double-quotes
+    # patterns like run_search "circuit_breaker" which JSON-parses as
+    # the literal string "circuit_breaker" (with quotes), missing all hits.
+    tool_args = [
+        a[1:-1]
+        if isinstance(a, str) and len(a) >= 2
+        and a[0] == a[-1] and a[0] in ('"', "'")
+        else a
+        for a in tool_args
+    ]
 
     result = registry.execute(tool_name, tool_args)
     return _truncate_tool_output(result)
@@ -379,13 +447,15 @@ def _run_turn(
         if action is None:
             # Budget-aware answer detection:
             # - budget=0 (pure chat): accept any non-stub answer
-            # - budget>=1 (tools expected): retry — J should use a tool
+            # - budget>=1 but tools already used: J answered after using tools — accept
+            # - budget>=1 and no tools used yet: retry — J should use a tool
             stripped_reply = reply.strip()
-            # Budget=0 means the router decided no tool is needed.
-            # Accept ANY non-empty answer — even short ones like "2048."
+            # Accept the answer if:
+            #   a) budget=0 (router said no tool needed), OR
+            #   b) J already used at least one tool this turn (task done, now answering)
             # Only reject pure stubs: empty, just "Understood", or ACTION leftovers.
             is_chat_answer = (
-                tool_budget == 0
+                (tool_budget == 0 or turn_tool_calls > 0)
                 and len(stripped_reply) > 0
                 and stripped_reply.lower() not in ("understood", "understood.")
                 and "ACTION:" not in stripped_reply
