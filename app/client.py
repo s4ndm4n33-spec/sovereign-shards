@@ -92,10 +92,10 @@ def create_client() -> RuntimeConfig:
     reasoning_budget = int(os.getenv("LLAMA_REASONING_BUDGET", "0"))
     reasoning_format = os.getenv("LLAMA_REASONING_FORMAT", "none").strip()
     stop_tokens = tuple(
-        token.strip()
+        token.strip().replace("\\n", "\n")
         for token in os.getenv(
             "LLAMA_STOP_TOKENS",
-            "<|im_end|>,<|im_start|>,\\nYou:,\\nUnderstood,\\nI apologize,\\nAs per my programming,\\nI am not capable,\\n[TOOL,\\nresult:",
+            "<|im_end|>,<|im_start|>,\\nYou:,\\nUnderstood,\\nI apologize,\\nAs per my programming,\\nI am not capable,\\n[TOOL,\\nresult:,[TOOL EXECUTION]",
         ).split(",")
         if token.strip()
     )
