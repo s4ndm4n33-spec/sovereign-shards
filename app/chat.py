@@ -341,15 +341,17 @@ def _run_turn(
     for hop in range(MAX_TOOL_HOPS):
         action = _extract_action(reply)
         if action is None:
-            # If J gave a substantive answer (not just "Understood" or a
-            # stub), accept it — don't force a tool call on pure-chat turns.
+            # Budget-aware answer detection:
+            # - budget=0 (pure chat): accept any non-stub answer
+            # - budget>=1 (tools expected): retry — J should use a tool
             stripped_reply = reply.strip()
-            is_substantive = (
-                len(stripped_reply) > 40
+            is_chat_answer = (
+                tool_budget == 0
+                and len(stripped_reply) > 20
                 and not stripped_reply.lower().startswith("understood")
                 and "ACTION:" not in stripped_reply
             )
-            if is_substantive or action_retries >= MAX_ACTION_RETRIES:
+            if is_chat_answer or action_retries >= MAX_ACTION_RETRIES:
                 break
             messages.append({"role": "user", "content": ACTION_RETRY_PROMPT})
             logger.append("user", ACTION_RETRY_PROMPT)
