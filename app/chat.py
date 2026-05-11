@@ -298,6 +298,40 @@ def _stream_reply(client: RuntimeConfig, messages: list[dict[str, str]]) -> str:
         return full_reply
 
 
+# ── Auto-reflection ─────────────────────────────────────────────────
+
+
+def _maybe_auto_reflect(
+    client: "RuntimeConfig",
+    messages: list[dict[str, str]],
+    logger: "SessionLogger",
+) -> None:
+    """Fire reflection automatically when working memory exceeds 32KB.
+
+    Same logic as the /reflect command, but triggered after every turn.
+    Keeps working memory bounded without manual intervention.
+    """
+    if not should_reflect():
+        return
+    entries = working_memory.read_all()
+    if not entries:
+        return
+    print(f"\n[AUTO-REFLECT] {len(entries)} entries, {working_memory.size_bytes():,} bytes — compressing...")
+    rprompt = build_reflect_prompt(entries)
+    messages.append({"role": "user", "content": rprompt})
+    messages[:] = trim_context(messages, max_tokens=client.num_ctx)
+    raw = _stream_reply(client, messages)
+    print()
+    assistant_role = _assistant_role(client)
+    messages.append({"role": assistant_role, "content": raw})
+    consolidated = parse_reflected(raw)
+    if consolidated:
+        apply_reflection(consolidated)
+        print(f"[AUTO-REFLECT OK] {len(entries)} → {len(consolidated)} entries")
+    else:
+        print("[AUTO-REFLECT FAIL] Could not parse; memory unchanged.")
+
+
 # ── Turn execution ──────────────────────────────────────────────────
 
 
@@ -429,6 +463,11 @@ def _run_turn(
         turn_tool_calls += 1
         remaining = tool_budget - turn_tool_calls
 
+        # ── Error-aware nudge: tell J what went wrong so it can fix args ──
+        error_hint = ""
+        if is_error and remaining > 0:
+            error_hint = f" Your last tool call FAILED: {tool_result[:200]}. Fix the arguments and try again."
+
         if remaining <= 0:
             # Budget spent — force answer, no more tools
             continuation = (
@@ -438,12 +477,12 @@ def _run_turn(
         elif remaining == 1:
             continuation = (
                 f"[{turn_tool_calls}/{tool_budget} tool calls used, 1 remaining] "
-                "Continue. You may call one more tool if needed, then respond."
+                "Continue." + error_hint + (" You may call one more tool if needed, then respond." if not error_hint else "")
             )
         else:
             continuation = (
                 f"[{turn_tool_calls}/{tool_budget} tool calls used, {remaining} remaining] "
-                "Continue. Call another tool if needed, or respond to the user."
+                "Continue." + error_hint + (" Call another tool if needed, or respond to the user." if not error_hint else "")
             )
 
         messages.append({"role": "user", "content": continuation})
@@ -476,6 +515,7 @@ def _run_turn(
     # Tier 2: compress this turn into working memory
     wm_entry = working_memory.compress_turn(user_message, reply)
     working_memory.append(**wm_entry)
+    _maybe_auto_reflect(client, messages, logger)
 
     return reply
 
@@ -768,6 +808,7 @@ def _run_buffer_plan(
         # Compress into working memory for cross-step recall
         wm_entry = working_memory.compress_turn(goal, step_reply)
         working_memory.append(**wm_entry)
+        _maybe_auto_reflect(client, messages, logger)
 
     # ── Phase 4: SUMMARY ────────────────────────────────────────
     buf_summary = task_buffer.summary()
@@ -1196,6 +1237,7 @@ def run_chat(
                 rlog.event("fast_route", tool=route_result.tool_name)
                 wm_entry = working_memory.compress_turn(user_message, route_result.output)
                 working_memory.append(**wm_entry)
+                _maybe_auto_reflect(client, messages, logger)
                 # Inject a one-line breadcrumb into J's message history so
                 # it can recall router-handled turns when asked.
                 output_preview = route_result.output[:120].replace("\n", " ")
