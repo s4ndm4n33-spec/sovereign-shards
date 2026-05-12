@@ -157,5 +157,12 @@
       }
     ],
     "side_effect": "read"
+  },
+  "run_calc": {
+    "description": "Safe calculator. Evaluates arithmetic expressions without exec/eval. Supports: + - * / // % ** parentheses sqrt abs round min max log sin cos tan pi e. Also understands natural language: \"47 times 13\", \"what is 100 plus 200\".",
+    "args": [
+      "expression"
+    ],
+    "side_effect": "read"
   }
 }
