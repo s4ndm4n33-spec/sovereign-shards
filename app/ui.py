@@ -13,6 +13,8 @@ Falls back to plain text if the terminal doesn't support colour.
 
 from __future__ import annotations
 
+from app import personality as persona
+
 import os
 import sys
 
@@ -236,7 +238,7 @@ def banner(session_id: str = "", backend: str = "", model: str = "",
     lines.append(divider)
 
     # Ready message
-    ready = "Systems online. Ready when you are."
+    ready = persona.ready()
     lines.append(f"\n  {stark_blue(ready) if COLOUR else ready}\n")
 
     return "\n".join(lines)
@@ -293,15 +295,13 @@ def memory_status(entries: int, size_bytes: int) -> str:
 
 def shutdown_msg(transcript_path: str) -> str:
     """Styled shutdown message and restore terminal defaults."""
+    text = persona.shutdown(transcript_path)
     if COLOUR:
-        msg = (
-            f"\n  {dim('Session saved to')} {gold(transcript_path)}"
-            f"\n  {red('▪')} {dim('Shard offline.')}\n"
-        )
+        msg = f"\n  {red('▪')} {dim(text)}\n"
         # Restore terminal to default colours so cmd.exe isn't stuck on black
         msg += "\033[0m"
         return msg
-    return f"\nSession saved to {transcript_path}\nShard offline."
+    return f"\n{text}"
 
 
 def reflect_status(before: int, after: int) -> str:

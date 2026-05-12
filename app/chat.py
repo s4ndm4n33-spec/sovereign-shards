@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 from app.agent import ToolRegistry, working_memory
+from app import personality as persona
 from app import ui
 from app.agent import task_buffer
 from app.agent.context import (
@@ -298,9 +299,8 @@ def _check_language_drift(reply: str, messages: list[dict[str, str]], client: Ru
         sys_content = messages[0].get("content", "") if messages else ""
         sys_tokens = max(1, len(sys_content) // 4)
         budget = max(256, client.num_ctx - client.num_predict)
-        print(f"\n{ui.warn_tag('LANGUAGE DRIFT: Response may not be in English.')}")
+        print(f"\n{ui.warn_tag(persona.language_drift())}")
         print(f"  System prompt: ~{sys_tokens} tokens | Budget: {budget} tokens")
-        print(f"  Tip: check .env (OLLAMA_NUM_PREDICT, OLLAMA_NUM_CTX) and J-system.txt")
 
 
 def _stream_reply(client: RuntimeConfig, messages: list[dict[str, str]]) -> str:
@@ -385,7 +385,7 @@ def _maybe_auto_reflect(
     entries = working_memory.read_all()
     if not entries:
         return
-    print(f"\n{ui.stark_blue('[AUTO-REFLECT]')} {len(entries)} entries, {working_memory.size_bytes():,} bytes — compressing...")
+    print(f"\n{ui.stark_blue(persona.reflect_start(len(entries), working_memory.size_bytes()))}")
     rprompt = build_reflect_prompt(entries)
     messages.append({"role": "user", "content": rprompt})
     messages[:] = trim_context(messages, max_tokens=client.num_ctx)
@@ -396,9 +396,9 @@ def _maybe_auto_reflect(
     consolidated = parse_reflected(raw)
     if consolidated:
         apply_reflection(consolidated)
-        print(ui.reflect_status(len(entries), len(consolidated)))
+        print(ui.stark_blue(persona.reflect_done(len(entries), len(consolidated))))
     else:
-        print(ui.error_tag("[AUTO-REFLECT] Could not parse; memory unchanged."))
+        print(ui.error_tag(persona.reflect_failed()))
 
 
 # ── Turn execution ──────────────────────────────────────────────────
@@ -502,11 +502,11 @@ def _run_turn(
         # Autonomy gate
         if needs_confirmation(tool_name, registry, autonomy_mode):
             effect = registry.get_side_effect(tool_name)
-            print(f"\n⚠ Tool '{tool_name}' [{effect}] requires confirmation.")
+            print(f"\n⚠ {persona.tool_confirm(tool_name, effect)}")
             print(f"  Args: {action.get('args', [])}")
             confirm = input("  Approve? (y/n): ").strip().lower()
             if confirm != "y":
-                tool_result = f"[TOOL BLOCKED] User denied '{tool_name}'."
+                tool_result = f"[TOOL BLOCKED] {persona.tool_blocked(tool_name)}"
                 messages.append({"role": assistant_role, "content": tool_result})
                 logger.append("system", tool_result)
                 rlog.event("tool_blocked", tool=tool_name)
@@ -573,7 +573,7 @@ def _run_turn(
                 if len(answer_part) > 20:
                     reply = answer_part
                 else:
-                    reply = "[STOPPED] Tool budget exhausted."
+                    reply = f"[STOPPED] {persona.tool_budget_exhausted()}"
             messages.append({"role": assistant_role, "content": reply})
             logger.append("assistant", reply)
             break  # budget spent — exit the tool loop
@@ -611,7 +611,7 @@ def _run_agent_task(
     rlog.event("agent_start", objective=objective)
 
     # 1. Plan
-    print(f"\n{ui.red('[PLANNING]')} {ui.gold('Decomposing objective into steps...')}")
+    print(f"\n{ui.red('[PLANNING]')} {ui.gold(persona.planning_start())}")
     plan_prompt = build_plan_prompt(objective)
     messages.append({"role": "user", "content": plan_prompt})
     messages[:] = trim_context(messages, max_tokens=client.num_ctx)
@@ -625,7 +625,7 @@ def _run_agent_task(
     task_id = logger.session_id
     save_task(task, task_id)
 
-    print(ui.plan_header(len(task.steps)))
+    print(f"\n{ui.red('[PLAN]')} {ui.gold(persona.plan_parsed(len(task.steps)))}")
     print(format_graph(task.steps, set(task.completed_step_ids)))
 
     # Visual task tree
@@ -667,7 +667,8 @@ def _run_agent_task(
 
         passed, reason = parse_verdict(verify_raw)
         status = "PASSED" if passed else "FAILED"
-        safe_print(f"\n[VERIFY {status}] {step.id}: {reason}")
+        _vfn = persona.verify_pass if passed else persona.verify_fail
+        safe_print(f"\n{_vfn(step.id, reason)}")
         rlog.event("verify_done", step=step.id, passed=passed, reason=reason)
         logger.append("system", f"[VERIFY {status}] {step.id}: {reason}")
 
@@ -683,7 +684,7 @@ def _run_agent_task(
             continue
 
         if len(pending) > 1:
-            safe_print(f"\n[TIER {tier_idx + 1}] Running {len(pending)} steps in parallel...")
+            safe_print(f"\n{persona.tier_start(tier_idx + 1, len(pending))}")
 
         outcomes = run_tier_parallel(pending, _execute_single_step)
 
@@ -706,7 +707,7 @@ def _run_agent_task(
                 )
                 working_memory.append(outcome.step.id, step_summary)
             else:
-                safe_print(f"[STEP FAILED] {outcome.step.id} — stopping agent loop.")
+                safe_print(persona.step_failed(outcome.step.id))
                 rlog.event("agent_step_failed", step=outcome.step.id, reason=outcome.reason)
                 abort = True
                 break
@@ -720,7 +721,7 @@ def _run_agent_task(
     # Summary
     done = len(task.completed_step_ids)
     total = len(task.steps)
-    summary = f"\n[AGENT COMPLETE] {done}/{total} steps done. Task: {task_id}"
+    summary = f"\n{persona.agent_complete(done, total, task_id)}"
     print(summary)
     print(status_panel(task.objective[:50], done, total))
     rlog.event("agent_complete", done=done, total=total, task_id=task_id)
@@ -739,7 +740,7 @@ def _run_agent_task(
             stats={"task_id": task_id, "steps_done": done,
                    "steps_total": total},
         )
-        print(f"[REPORT] HTML report: {report_path}")
+        print(persona.report_saved(report_path))
     except Exception:
         pass  # Non-critical — don't fail the task over a report
 
@@ -775,14 +776,14 @@ def _run_buffer_plan(
     # ── Phase 1: PLAN — get J to output numbered steps ──────────
     # Skip if steps were already loaded into the buffer (e.g. /steps command)
     if skip_planning and task_buffer.pending_count() > 0:
-        print(f"\n{ui.red('[BUFFER]')} {ui.gold('Executing pre-loaded plan...')}")
+        print(f"\n{ui.red('[BUFFER]')} {ui.gold(persona.buffer_executing())}")
         print(task_buffer.summary())
     else:
         # ── Pre-check: does the objective already contain numbered steps? ──
         user_steps = task_buffer.parse_numbered_plan(objective)
         if len(user_steps) >= 2:
             # User provided explicit steps — skip LLM planning entirely
-            print(f"\n{ui.red('[PLAN]')} {ui.gold('Detected numbered steps in objective — skipping LLM decomposition.')}")
+            print(f"\n{ui.red('[PLAN]')} {ui.gold(persona.plan_detected_steps())}")
             steps = user_steps
         else:
             plan_prefix = ""
@@ -797,7 +798,7 @@ def _run_buffer_plan(
             messages.append({"role": "user", "content": plan_prompt})
             messages[:] = trim_context(messages, max_tokens=client.num_ctx)
 
-            print("\n[PLAN MODE] Asking J to decompose the task...\n")
+            print(f"\n{persona.plan_mode_start()}\n")
             print(ui.j_prefix(), end="", flush=True)
             plan_raw = _stream_reply(client, messages)
             print()
@@ -807,8 +808,7 @@ def _run_buffer_plan(
             # Parse steps → buffer
             steps = task_buffer.parse_numbered_plan(plan_raw)
             if not steps:
-                print(ui.warn_tag("[PLAN] Could not parse numbered steps from J's output."))
-                print(ui.warn_tag("[PLAN] Falling back to single-step execution."))
+                print(ui.warn_tag(persona.plan_fallback()))
                 steps = [{
                     "id": "s1",
                     "goal": objective,
@@ -851,7 +851,7 @@ def _run_buffer_plan(
         full_prompt = f"{exec_prefix}\n\n{step_content}"
 
         # Run the step through the normal turn machinery
-        print(f"[EXEC] step={step_id}  tool_budget=2")
+        print(persona.exec_status(step_id, 2))
         print(ui.j_prefix(), end="", flush=True)
         try:
             step_reply = _run_turn(
@@ -871,13 +871,13 @@ def _run_buffer_plan(
         is_error = any(m in step_reply for m in ("[TOOL ERROR]", "[ERROR]", "FAILED"))
         if is_error:
             task_buffer.mark_failed(step_id, step_reply[:200])
-            print(f"\n[STEP {step_id} FAILED]")
+            print(f"\n{persona.step_failed(step_id)}")
             rlog.event("buffer_step_failed", step=step_id)
             # Don't abort — continue with independent steps
         else:
             result_summary = step_reply[:200].replace("\n", " ").strip()
             task_buffer.mark_done(step_id, result_summary)
-            print(f"\n[STEP {step_id} DONE]")
+            print(f"\n{persona.step_done(step_id)}")
             rlog.event("buffer_step_done", step=step_id)
 
         # Compress into working memory for cross-step recall
@@ -892,8 +892,7 @@ def _run_buffer_plan(
     failed = task_buffer.failed_count()
 
     print(f"\n{'='*50}")
-    print(f"[PLAN COMPLETE] {done}/{total} steps done"
-          + (f", {failed} failed" if failed else ""))
+    print(persona.plan_complete(done, total, failed))
     print("=" * 50)
     print(f"\n{buf_summary}")
 
@@ -1049,10 +1048,10 @@ def run_chat(
                 new_mode = user_message[6:].strip()
                 if new_mode in ("manual", "semi", "auto-safe", "auto-full"):
                     autonomy_mode = new_mode
-                    print(f"[MODE] Autonomy set to: {autonomy_mode}")
+                    print(persona.mode_changed(autonomy_mode))
                     rlog.event("mode_change", mode=autonomy_mode)
                 else:
-                    print("[MODE ERROR] Valid modes: manual, semi, auto-safe, auto-full")
+                    print(persona.mode_error())
                 continue
 
             if user_message.startswith("/model "):
@@ -1064,10 +1063,7 @@ def run_chat(
                     os.environ["OLLAMA_MODEL"] = new_model
                     client = create_client()
                     messages = build_history(client)
-                    print(f"[MODEL] Switched to: {new_model}")
-                    print(f"  Backend: {client.backend}")
-                    print(f"  Context: {client.num_ctx} tokens")
-                    print("  Note: conversation history reset. Memory persists.")
+                    print(persona.model_changed(new_model, client.backend, client.num_ctx))
                     rlog.event("model_swap", model=new_model)
                 else:
                     print(f"[MODEL] Current: {client.model}")
@@ -1106,7 +1102,7 @@ def run_chat(
                     apply_reflection(consolidated)
                     print(f"[REFLECT OK] {len(entries)} → {len(consolidated)} entries")
                 else:
-                    print("[REFLECT FAIL] Could not parse; memory unchanged.")
+                    print(persona.reflect_failed())
                 continue
 
             if user_message == "/integrity":
@@ -1206,7 +1202,7 @@ def run_chat(
                             for i in pmap.issues
                         ]
                         path = generate_refactor_report(pmap.summary(), issues_data)
-                        print(f"\n[REPORT] HTML report saved: {path}")
+                        print(f"\n{persona.report_saved(path)}")
                 except Exception as exc:
                     print(f"[REFACTOR ERROR] {exc}")
                 rlog.event("refactor_scan")
@@ -1222,7 +1218,7 @@ def run_chat(
                         stats={"session": logger.session_id,
                                "turns": len(messages)},
                     )
-                    print(f"[REPORT] Saved: {report_path}")
+                    print(persona.report_saved(report_path))
                 except Exception as exc:
                     print(f"[REPORT ERROR] {exc}")
                 rlog.event("report_generated")
@@ -1337,9 +1333,7 @@ def run_chat(
                 # Weight-triggered reflection
                 if should_reflect():
                     entries = working_memory.read_all()
-                    print(f"\n{ui.stark_blue('[AUTO-REFLECT]')} Working memory over threshold "
-                          f"({working_memory.size_bytes():,} bytes, "
-                          f"{len(entries)} entries). Compressing...")
+                    print(f"\n{ui.stark_blue(persona.reflect_start(len(entries), working_memory.size_bytes()))}")
                     rprompt = build_reflect_prompt(entries)
                     messages.append({"role": "user", "content": rprompt})
                     messages[:] = trim_context(messages, max_tokens=client.num_ctx)
@@ -1349,10 +1343,10 @@ def run_chat(
                     consolidated = parse_reflected(raw)
                     if consolidated:
                         apply_reflection(consolidated)
-                        print(ui.reflect_status(len(entries), len(consolidated)))
+                        print(ui.stark_blue(persona.reflect_done(len(entries), len(consolidated))))
                         rlog.event("reflection", before=len(entries), after=len(consolidated))
                     else:
-                        print(ui.error_tag("[AUTO-REFLECT] Parse error; memory unchanged."))
+                        print(ui.error_tag(persona.reflect_failed()))
             except TransportError as error:
                 print(f"\n{ui.error_tag(f'J.: {error}')}")
                 logger.append("error", str(error))

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import time
 from collections import deque
+
+from app import personality as persona
 from dataclasses import dataclass, field
 
 
@@ -82,14 +84,12 @@ class CircuitBreaker:
         # 1. Total budget exceeded
         if self.state.total_turns >= MAX_TOTAL_TURNS:
             return self._trip("budget_exceeded",
-                f"Total turn budget exhausted ({self.state.total_turns}/{MAX_TOTAL_TURNS}). "
-                "Summarize progress and stop.")
+                persona.breaker_budget_exceeded(self.state.total_turns, MAX_TOTAL_TURNS))
 
         # 2. Step turn limit
         if self.state.step_turns >= MAX_STEP_TURNS:
             return self._trip("step_stuck",
-                f"Step has consumed {self.state.step_turns} turns without completing. "
-                "Either finish now with what you have or report what's blocking you.")
+                persona.breaker_step_stuck(self.state.step_turns))
 
         # 3. Repeated tool calls (same tool + same args)
         if len(self.state.recent) >= MAX_REPEAT_CALLS:
@@ -98,9 +98,7 @@ class CircuitBreaker:
                     and all(r.args_hash == last_n[0].args_hash for r in last_n)
                     and last_n[0].tool):
                 return self._trip("repeat_call",
-                    f"You've called '{last_n[0].tool}' with the same arguments "
-                    f"{MAX_REPEAT_CALLS} times. Try a different approach, "
-                    "different arguments, or skip this step.")
+                    persona.breaker_repeat_call(last_n[0].tool, MAX_REPEAT_CALLS))
 
         # 4. Repeated errors
         if len(self.state.recent) >= MAX_REPEAT_ERRORS:
@@ -110,10 +108,7 @@ class CircuitBreaker:
                 prefixes = [r.output_prefix for r in recent_errors]
                 if len(set(prefixes)) == 1:
                     return self._trip("repeat_error",
-                        "The same error has occurred "
-                        f"{MAX_REPEAT_ERRORS} times in a row. "
-                        "Stop retrying the same approach. "
-                        "Diagnose the root cause or skip this step.")
+                        persona.breaker_repeat_error(MAX_REPEAT_ERRORS))
 
         return None
 
@@ -153,5 +148,5 @@ class BreakerTrip:
     @property
     def recovery_prompt(self) -> str:
         """The prompt to inject into the conversation."""
-        prefix = "[CIRCUIT BREAKER]" if self.trip_count < 3 else "[CIRCUIT BREAKER — FORCING SKIP]"
+        prefix = "[CIRCUIT BREAKER]" if self.trip_count < 3 else f"[CIRCUIT BREAKER] {persona.breaker_force_skip()}"
         return f"{prefix} {self.message}"
