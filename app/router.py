@@ -1,8 +1,8 @@
 """Fast deterministic command router — sits BEFORE the LLM.
 
-Intercepts direct commands, shell invocations, and tool prefixes so the
-language model only touches input that genuinely needs reasoning.
-Zero inference cost for anything the router handles.
+Intercepts direct commands, shell invocations, tool prefixes, and
+arithmetic so the language model only touches input that genuinely
+needs reasoning. Zero inference cost for anything the router handles.
 """
 
 from __future__ import annotations
@@ -63,6 +63,68 @@ _CODE_FENCE_RE = re.compile(
     r"^```(?:bash|sh|shell|python)?\s*\n(.+?)\n```$",
     re.DOTALL | re.IGNORECASE,
 )
+
+# ── Math detection patterns ─────────────────────────────────────────
+#
+# Two tiers:
+#   A) Direct arithmetic: "47 * 13", "100 + 200", "(3 + 4) * 5"
+#   B) Natural language:  "what is 47 times 13?", "how much is 365 / 7"
+#
+# We check AFTER slash commands and tool prefixes so "run_calc ..."
+# still works via rule 2, and "/plan calculate ..." hits the LLM.
+
+# Direct arithmetic: contains digits + operators, optionally with
+# math function names and parens. Must have at least one operator
+# between two numbers to qualify.
+_DIRECT_MATH_RE = re.compile(
+    r"^[\d\s+\-*/%.()^,]+$"
+)
+
+# Natural language math triggers
+_NL_MATH_RE = re.compile(
+    r"(?:what\s+is|what\'s|calculate|compute|solve|evaluate|how\s+much\s+is)"
+    r"\s+.*\d",
+    re.IGNORECASE,
+)
+
+# Word-form operators that signal arithmetic intent
+_WORD_MATH_RE = re.compile(
+    r"\d+\s+(?:times|multiplied\s+by|divided\s+by|plus|minus|over"
+    r"|mod|modulo|to\s+the\s+power\s+of|squared|cubed)\b",
+    re.IGNORECASE,
+)
+
+# Math function calls: sqrt(144), log(100), etc.
+_FUNC_MATH_RE = re.compile(
+    r"^(?:sqrt|abs|round|min|max|pow|log|log2|log10|sin|cos|tan"
+    r"|ceil|floor|factorial)\s*\(",
+    re.IGNORECASE,
+)
+
+
+def _is_math(stripped: str, lowered: str) -> bool:
+    """Return True if the input looks like a math question."""
+    # Direct arithmetic: "47 * 13", "(3+4)*5"
+    # Must have at least one operator and one digit
+    if _DIRECT_MATH_RE.match(stripped):
+        has_digit = any(c.isdigit() for c in stripped)
+        has_op = any(c in stripped for c in "+-*/%")
+        if has_digit and has_op:
+            return True
+
+    # Natural language: "what is 47 times 13?"
+    if _NL_MATH_RE.search(lowered):
+        return True
+
+    # Word operators: "47 times 13", "100 divided by 7"
+    if _WORD_MATH_RE.search(stripped):
+        return True
+
+    # Math function: "sqrt(144)", "round(22/7, 4)"
+    if _FUNC_MATH_RE.match(stripped):
+        return True
+
+    return False
 
 
 def route(user_input: str, registry: "ToolRegistry") -> RouteResult:
@@ -132,7 +194,17 @@ def route(user_input: str, registry: "ToolRegistry") -> RouteResult:
                 return RouteResult(handled=True, tool_name="read_file",
                                    tool_args=[path], output=output)
 
-    # ── 7. No match → classify complexity and set tool budget ───────
+    # ── 7. Arithmetic → run_calc (zero inference cost) ──────────────
+    if "run_calc" in registry.tools and _is_math(stripped, lowered):
+        output = registry.execute("run_calc", [stripped])
+        return RouteResult(
+            handled=True,
+            tool_name="run_calc",
+            tool_args=[stripped],
+            output=output,
+        )
+
+    # ── 8. No match → classify complexity and set tool budget ───────
     budget = _classify_budget(stripped, lowered)
     return RouteResult(handled=False, tool_budget=budget)
 
