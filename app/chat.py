@@ -778,37 +778,44 @@ def _run_buffer_plan(
         print(f"\n{ui.red('[BUFFER]')} {ui.gold('Executing pre-loaded plan...')}")
         print(task_buffer.summary())
     else:
-        plan_prefix = ""
-        try:
-            plan_prefix = (PROMPTS_DIR / "plan_mode.txt").read_text(encoding="utf-8").strip()
-        except OSError:
-            plan_prefix = ("PLAN MODE: Break the task into numbered steps BEFORE acting.\n"
-                           "Format:\n1. [step]\n2. [step]\n...\n"
-                           "Do NOT call any tools yet. Just output the plan.")
+        # ── Pre-check: does the objective already contain numbered steps? ──
+        user_steps = task_buffer.parse_numbered_plan(objective)
+        if len(user_steps) >= 2:
+            # User provided explicit steps — skip LLM planning entirely
+            print(f"\n{ui.red('[PLAN]')} {ui.gold('Detected numbered steps in objective — skipping LLM decomposition.')}")
+            steps = user_steps
+        else:
+            plan_prefix = ""
+            try:
+                plan_prefix = (PROMPTS_DIR / "plan_mode.txt").read_text(encoding="utf-8").strip()
+            except OSError:
+                plan_prefix = ("PLAN MODE: Break the task into numbered steps BEFORE acting.\n"
+                               "Format:\n1. [step]\n2. [step]\n...\n"
+                               "Do NOT call any tools yet. Just output the plan.")
 
-        plan_prompt = f"{plan_prefix}\n\nObjective: {objective}"
-        messages.append({"role": "user", "content": plan_prompt})
-        messages[:] = trim_context(messages, max_tokens=client.num_ctx)
+            plan_prompt = f"{plan_prefix}\n\nObjective: {objective}"
+            messages.append({"role": "user", "content": plan_prompt})
+            messages[:] = trim_context(messages, max_tokens=client.num_ctx)
 
-        print("\n[PLAN MODE] Asking J to decompose the task...\n")
-        print(ui.j_prefix(), end="", flush=True)
-        plan_raw = _stream_reply(client, messages)
-        print()
-        messages.append({"role": _assistant_role(client), "content": plan_raw})
-        logger.append("assistant", f"[PLAN]\n{plan_raw}")
+            print("\n[PLAN MODE] Asking J to decompose the task...\n")
+            print(ui.j_prefix(), end="", flush=True)
+            plan_raw = _stream_reply(client, messages)
+            print()
+            messages.append({"role": _assistant_role(client), "content": plan_raw})
+            logger.append("assistant", f"[PLAN]\n{plan_raw}")
 
-        # Parse steps → buffer
-        steps = task_buffer.parse_numbered_plan(plan_raw)
-        if not steps:
-            print(ui.warn_tag("[PLAN] Could not parse numbered steps from J's output."))
-            print(ui.warn_tag("[PLAN] Falling back to single-step execution."))
-            steps = [{
-                "id": "s1",
-                "goal": objective,
-                "depends": [],
-                "status": "pending",
-                "result": "",
-            }]
+            # Parse steps → buffer
+            steps = task_buffer.parse_numbered_plan(plan_raw)
+            if not steps:
+                print(ui.warn_tag("[PLAN] Could not parse numbered steps from J's output."))
+                print(ui.warn_tag("[PLAN] Falling back to single-step execution."))
+                steps = [{
+                    "id": "s1",
+                    "goal": objective,
+                    "depends": [],
+                    "status": "pending",
+                    "result": "",
+                }]
 
         n_written = task_buffer.write_plan(steps)
         print(f"\n{ui.red('[BUFFER]')} {ui.gold(f'{n_written} step(s) queued:')}")
