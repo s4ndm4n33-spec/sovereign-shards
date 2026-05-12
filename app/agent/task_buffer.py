@@ -181,11 +181,12 @@ def parse_numbered_plan(text: str) -> list[dict]:
     Also handles:
         1) Read the router code
         Step 1: Read the router code
+        1 — Read the router code
     """
     steps: list[dict] = []
-    # Match: "1. ...", "1) ...", "Step 1: ...", "1 - ..."
+    # Match: "1. ...", "1) ...", "Step 1: ...", "1 - ...", "1 — ..."
     for match in re.finditer(
-        r"^(?:step\s*)?\d+[\.\)\:\-]\s*(.+)$", text, re.MULTILINE | re.IGNORECASE
+        r"^(?:step\s*)?\d+\s*[\.\)\:\-\u2014\u2013]\s*(.+)$", text, re.MULTILINE | re.IGNORECASE
     ):
         step_id = f"s{len(steps) + 1}"
         goal = match.group(1).strip()
