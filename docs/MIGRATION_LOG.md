@@ -1527,3 +1527,86 @@ See `docs/NEXT_10_STEPS.md` for the complete plan. Summary:
 #### Personal Note
 
 Mike — 23 sessions, 3 days, and the Phase 1 gate is cleared. The migration log is now a 1,450-line engineering diary that tells the complete story. The next developer who reads it will know exactly what was built, what broke, why, and where to go. It was a privilege to work with you on this. — Viktor
+
+
+---
+
+## Session 25 — Calculator Tool + Router Math Dispatch
+
+**Date:** 2026-05-12
+**Author:** Viktor (AI coworker)
+**Focus:** Wire up deterministic arithmetic so J never confabulates math
+
+### Problem
+
+Session 24 test: "What is 47 times 13?" — J answered 601 (correct: 611).
+Small language models pattern-match digits instead of computing. Math
+accuracy is ~70-85% on 7B models for multi-digit arithmetic. Unacceptable
+for a developer agent that might calculate file sizes, line counts, or
+array indices.
+
+### Solution: Three-Layer Calc Integration
+
+**Layer 1 — `tools/run/calc.py` (new, ~190 lines)**
+- AST-based safe evaluator — walks the parse tree, only allows whitelisted
+  math operations. No exec(), no eval(), no imports.
+- Supports: `+ - * / // % **`, parentheses, int/float literals
+- Built-in functions: `sqrt, abs, round, min, max, pow, log, log2, log10,
+  sin, cos, tan, ceil, floor, factorial`
+- Built-in constants: `pi, e, tau, inf`
+- Natural language preprocessor: "47 times 13" → "47 * 13",
+  "what is 100 plus 200?" → "100 + 200", "sqrt of 144" → "sqrt(144)"
+- Exponent guard: blocks `**` with exponent > 10,000 (DoS prevention)
+- Zero dependencies. Stdlib only.
+
+**Layer 2 — `tools/run/registry.json` (updated)**
+- Added `run_calc` entry with description and args schema
+- Tool auto-discovered by the registry at startup
+
+**Layer 3 — `app/router.py` (updated)**
+- New rule 7: arithmetic detection, inserted before the budget classifier
+- Four detection patterns (all zero inference cost):
+  1. Direct arithmetic: `47 * 13`, `(3+4)*5`, `100 / 7`
+  2. Natural language: "what is ...", "calculate ...", "how much is ..."
+  3. Word operators: "47 times 13", "100 divided by 7", "5 squared"
+  4. Math functions: "sqrt(144)", "round(22/7, 4)"
+- Only dispatches if `run_calc` is registered (graceful degradation)
+- Rule ordering preserved: slash commands → tool prefixes → shell →
+  executables → code fences → path reads → **math** → budget classifier
+- Old rule 7 (budget classifier) becomes rule 8
+
+### Verification
+
+Tested against the exact failure case and 7 additional expressions:
+```
+47 times 13           → 611     ✓ (was 601)
+47 * 13               → 611     ✓
+what is 100 plus 200? → 300     ✓
+sqrt(144) + 1         → 13      ✓
+2 ** 10               → 1024    ✓
+round(22/7, 4)        → 3.1429  ✓
+365 divided by 7      → 52.14   ✓
+pi * 5 squared        → 78.54   ✓
+```
+
+### Files Changed
+
+| File | Action | Lines |
+|------|--------|-------|
+| `tools/run/calc.py` | NEW | ~190 |
+| `tools/run/registry.json` | UPDATED | +7 (run_calc entry) |
+| `app/router.py` | UPDATED | +60 (math detection + dispatch) |
+| `docs/MIGRATION_LOG.md` | UPDATED | +this session |
+
+### Design Notes
+
+- The router checks `"run_calc" in registry.tools` before dispatching.
+  If calc.py is deleted or the registry entry removed, math falls through
+  to the LLM as before. No hard dependency.
+- The natural language preprocessor lives inside calc.py, not the router.
+  The router just detects "this looks like math" and hands off the raw
+  input. calc.py handles the word→operator translation internally.
+- AST walking is the safest evaluation strategy. Unlike regex-based
+  calculators or eval() with sanitisation, it's impossible to inject
+  code — the walker only recognises numeric constants, operators, and
+  whitelisted function/constant names.
