@@ -163,7 +163,39 @@ def _extract_action(content: str) -> dict | None:
                 except Exception:
                     pass
 
-    # ── 2. Fallback: ACTION:tool_name arg1 arg2 (no JSON wrapper) ──
+    # ── 2. Regex rescue: extract tool + args from broken JSON ────────
+    # Models (especially 7B) sometimes produce JSON with unescaped
+    # quotes inside string values — e.g. regex patterns like [^"]+.
+    # json.loads and literal_eval both choke, but we can still pull
+    # the tool name and reconstruct args with regex.
+    if brace != -1:
+        raw = json_str or payload
+        tool_m = re.search(r'"tool"\s*:\s*"(\w+)"', raw)
+        if tool_m:
+            tool = tool_m.group(1)
+            # Try to extract args from the broken JSON.
+            # Strategy: find the last cleanly-quoted path arg (always
+            # simple alphanumerics/slashes), then everything between
+            # the first arg quote and that delimiter is the first arg.
+            last_simple = re.search(
+                r',\s*"([a-zA-Z0-9_./ -]+)"\s*\]', raw
+            )
+            if last_simple:
+                path = last_simple.group(1)
+                # Locate the first arg between "args": [" and ,
+                arr_pos = raw.find('"args"')
+                if arr_pos >= 0:
+                    bracket = raw.find("[", arr_pos)
+                    if bracket >= 0:
+                        # first_arg is everything between [" and ",
+                        first_raw = raw[bracket + 2 : last_simple.start()]
+                        first_raw = first_raw.rstrip('"').strip()
+                        first_arg = first_raw.replace('\\"', '"')
+                        return {"tool": tool, "args": [first_arg, path]}
+                return {"tool": tool, "args": [path]}
+            return {"tool": tool, "args": []}
+
+    # ── 3. Bare fallback: ACTION:tool_name arg1 arg2 (no JSON) ─────
     parts = payload.split(None, 1)
     if parts and re.match(r"^[a-z_][a-z0-9_]*$", parts[0]):
         tool = parts[0]
