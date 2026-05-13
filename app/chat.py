@@ -922,6 +922,12 @@ def _run_buffer_plan(
 
 
 def _handle_quick_build(user_message: str, registry: ToolRegistry, logger: SessionLogger) -> bool:
+    """Intercept short 'build <name>' commands → run_scaffold.
+
+    Only fires for simple project names (1-3 words, no punctuation that
+    signals a complex instruction).  Multi-step prompts that happen to
+    start with 'Build' are left for the LLM/agent loop.
+    """
     lowered = user_message.strip().lower()
     if not lowered.startswith("build "):
         return False
@@ -931,6 +937,12 @@ def _handle_quick_build(user_message: str, registry: ToolRegistry, logger: Sessi
     if not target:
         print(f"{ui.j_prefix()}Please provide a project name, e.g. 'build starter_agent now'.")
         return True
+    # Complex instruction guard: if the target contains sentence-like
+    # punctuation or is more than 3 words, it's a task — not a scaffold.
+    words = target.split()
+    has_instruction_markers = any(c in target for c in ("—", ",", ".", ";", "then ", "\n"))
+    if len(words) > 3 or has_instruction_markers:
+        return False  # let the LLM/agent handle it
     result = registry.execute("run_scaffold", [target])
     print(f"{ui.j_prefix()}{result}")
     logger.append("assistant", f"[QUICK BUILD] {result}")
