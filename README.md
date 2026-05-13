@@ -270,16 +270,30 @@ sovereign-shards/                     127 files · ~6,500 lines Python
 │   └── icon.png                      # Project icon
 └── docs/
     ├── USER_MANUAL.md                # Full user guide
+    ├── TOOL_REFERENCE.md             # All 17 tools documented
     ├── ROADMAP.md                    # 5-phase roadmap with phase gates
-    ├── MIGRATION_LOG.md              # Engineering diary (~1,450 lines)
+    ├── MIGRATION_LOG.md              # Engineering diary (1,800+ lines)
     ├── NEXT_10_STEPS.md              # Deterministic next-step plan
     ├── MARKET_RESEARCH.md            # Competitive landscape analysis
-    ├── TERMINAL_UI_GUIDE.md          # UI customization guide
-    ├── E2E_TEST_BUILD.md             # E2E test specifications
-    ├── CODE_OPTIMIZER_SPEC.md        # Optimizer technical specification
-    ├── RECOMMENDATION_LETTER.md      # Project recommendation letter
     ├── BUSINESS_MODEL.md             # Three-tier business model
-    └── TEST_PLAN.md                  # Test strategy and coverage
+    ├── RECOMMENDATION_LETTER.md      # Project recommendation letter
+    ├── guides/                       # Setup & customization
+    │   ├── TERMINAL_UI_GUIDE.md
+    │   └── RUNNING_OTHER_MODELS.md
+    ├── testing/                      # Test plans & results
+    │   ├── TEST_PLAN.md
+    │   ├── E2E_TEST_BUILD.md
+    │   ├── ENDURANCE_TEST_20.md
+    │   └── SESSION_21_TEST_PLAN.md
+    ├── specs/                        # Design docs & specs
+    │   ├── CODE_OPTIMIZER_SPEC.md
+    │   ├── TASK_BUFFER_DESIGN.md
+    │   └── OPTION_C_DECOMPOSED.md
+    └── sessions/                     # Historical session notes
+        ├── CODE_REVIEW_SESSION19.md
+        ├── FINAL_PUSH_NOTES.md
+        ├── LANGUAGE_DIAGNOSTIC.md
+        └── APPENDIX_E.md
 ```
 
 ---
@@ -287,7 +301,7 @@ sovereign-shards/                     127 files · ~6,500 lines Python
 ## 📊 Project Stats
 
 ```
-127 files  ·  ~6,500 lines Python  ·  2 dependencies  ·  16+ tools
+146 files  ·  ~13,900 lines Python  ·  2 dependencies  ·  17 tools
 147+ tests  ·  8 AST transforms  ·  5 code quality masters  ·  3-layer defence suite
 23 development sessions  ·  ~1,450-line engineering diary
 Zero network calls  ·  Zero telemetry  ·  100% local  ·  USB-portable
@@ -395,14 +409,15 @@ J occupies a unique position in the local AI agent market. No existing product c
 | [User Manual](docs/USER_MANUAL.md) | Commands, configuration, example workflows |
 | [Roadmap](docs/ROADMAP.md) | 5-phase plan with success criteria and phase gates |
 | [Next 10 Steps](docs/NEXT_10_STEPS.md) | Deterministic task list for the next developer |
-| [Migration Log](docs/MIGRATION_LOG.md) | Engineering diary — 1,450+ lines, 24 sessions |
+| [Migration Log](docs/MIGRATION_LOG.md) | Engineering diary — 1,800+ lines, 27 sessions |
 | [Market Research](docs/MARKET_RESEARCH.md) | Competitive landscape and positioning |
-| [Terminal UI Guide](docs/TERMINAL_UI_GUIDE.md) | How to customize the Iron Man terminal UI |
-| [Code Optimizer Spec](docs/CODE_OPTIMIZER_SPEC.md) | Five Masters optimizer technical specification |
-| [E2E Test Build](docs/E2E_TEST_BUILD.md) | End-to-end test specifications and runner |
+| [Terminal UI Guide](docs/guides/TERMINAL_UI_GUIDE.md) | How to customize the Iron Man terminal UI |
+| [Code Optimizer Spec](docs/specs/CODE_OPTIMIZER_SPEC.md) | Five Masters optimizer technical specification |
+| [E2E Test Build](docs/testing/E2E_TEST_BUILD.md) | End-to-end test specifications and runner |
 | [Contributing](CONTRIBUTING.md) | Architecture principles, code style, how to contribute |
-| [Test Plan](docs/TEST_PLAN.md) | Test strategy, coverage map, how to run |
+| [Test Plan](docs/testing/TEST_PLAN.md) | Test strategy, coverage map, how to run |
 | [Business Model](docs/BUSINESS_MODEL.md) | Three-tier pricing and distribution strategy |
+| [Recommendation Letter](docs/RECOMMENDATION_LETTER.md) | Letter of recommendation for Mike McCollum |
 
 ---
 
