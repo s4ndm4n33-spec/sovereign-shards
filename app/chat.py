@@ -549,6 +549,11 @@ def _run_turn(
         breadcrumb = ""
         if tool_budget > 3 and len(turn_tool_log) >= 2:
             breadcrumb = " Already done: " + ", ".join(turn_tool_log) + "."
+            # Anchor J to the original task so it doesn't veer off-plan
+            task_hint = user_message[:300].rstrip()
+            if len(user_message) > 300:
+                task_hint += "..."
+            breadcrumb += f" Original task: {task_hint}"
 
         if remaining <= 0:
             # Budget spent — force answer, no more tools
