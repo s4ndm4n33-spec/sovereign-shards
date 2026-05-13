@@ -3,8 +3,8 @@
 > For the next agent, developer, or collaborator picking up this project.
 > Read this entire document before writing a single line of code.
 
-**Last updated:** 2026-05-13 (Session 27)
-**Current agent:** Viktor (getviktor.com) — PRs #16–#32 (Session 18), direct pushes (Sessions 19–27). 192 total commits on main.
+**Last updated:** 2026-05-13 (Session 28)
+**Current agent:** Viktor (getviktor.com) — PRs #16–#32 (Session 18), direct pushes (Sessions 19–28). 195 total commits on main.
 **Repo:** github.com/s4ndm4n33-spec/sovereign-shards
 **Branch:** `main` (active development branch).
 
@@ -1804,3 +1804,30 @@ MAX_TOOL_OUTPUT_LINES = 60  (truncate long outputs)
 | `tools/run/tree.py` | UPDATED | +7 (Unicode fix, optional depth) |
 | `tools/run/registry.json` | UPDATED | +20 (tool entries) |
 | `tests/e2e_runner.py` | UPDATED | +8 (Windows path fix) |
+
+## Session 28 — Phase Compression Continuity Anchor
+
+### Problem
+
+Long, high-budget read pipelines were still vulnerable to drift after phase compression.  
+Observed failure mode: identity-reset phrasing and off-task `run_search` calls instead of continuing serial `run_read` work.
+
+### Fix
+
+- Added checklist detection in `_run_turn` for prompts matching:
+  `read each .py file in <dir>`.
+- On match, enumerate `*.py` in that directory into `pending_read_targets`.
+- After each `run_read` call, remove the completed target from the checklist.
+- During phase compression, append:
+  `Checklist (still unread): ...` + `Pick the next unread file with run_read.`
+
+This preserves original-task reinjection while adding concrete next-step guidance for the 7B model.
+
+### Files Changed
+
+| File | Action | Notes |
+|------|--------|-------|
+| `app/chat.py` | UPDATED | Added pending-read checklist tracking and phase-summary TODO anchor |
+| `ProjectManifest.txt` | UPDATED | Session/date and continuity-hardening notes |
+| `docs/MIGRATION_LOG.md` | UPDATED | Session 28 record |
+| `docs/MIGRATION_LOG.json` | UPDATED | Added M10 structured milestone |
