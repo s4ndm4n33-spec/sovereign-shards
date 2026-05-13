@@ -55,7 +55,7 @@ class CircuitBreaker:
     def __init__(self, tool_budget: int = 3) -> None:
         self.state = BreakerState()
         # Scale step limit with budget so heavy pipelines aren't killed early
-        self.max_step_turns = max(MAX_STEP_TURNS, tool_budget + 10)
+        self.max_step_turns = MAX_STEP_TURNS + max(0, tool_budget - 3)
 
     def reset_step(self) -> None:
         """Call at the start of each new step."""
