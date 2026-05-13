@@ -443,6 +443,7 @@ def _run_turn(
     action_retries = 0
     last_tool_error: str | None = None
     turn_tool_calls = 0  # per-turn counter (not cumulative across turns)
+    turn_tool_log: list[str] = []  # breadcrumb trail of completed calls
     for hop in range(MAX_TOOL_HOPS):
         action = _extract_action(reply)
         if action is None:
@@ -535,10 +536,19 @@ def _run_turn(
         turn_tool_calls += 1
         remaining = tool_budget - turn_tool_calls
 
+        # Log this call for the breadcrumb trail
+        call_args_str = " ".join(str(a) for a in action.get("args", []))
+        turn_tool_log.append(f"{action.get('tool')} {call_args_str}".strip())
+
         # ── Error-aware nudge: tell J what went wrong so it can fix args ──
         error_hint = ""
         if is_error and remaining > 0:
             error_hint = f" Your last tool call FAILED: {tool_result[:200]}. Fix the arguments and try again."
+
+        # ── Breadcrumb: remind J what it already did (prevents re-reads) ──
+        breadcrumb = ""
+        if tool_budget > 3 and len(turn_tool_log) >= 2:
+            breadcrumb = " Already done: " + ", ".join(turn_tool_log) + "."
 
         if remaining <= 0:
             # Budget spent — force answer, no more tools
@@ -549,12 +559,14 @@ def _run_turn(
         elif remaining == 1:
             continuation = (
                 f"[{turn_tool_calls}/{tool_budget} tool calls used, 1 remaining] "
-                "Continue." + error_hint + (" You may call one more tool if needed, then respond." if not error_hint else "")
+                "Continue." + error_hint + breadcrumb
+                + (" You may call one more tool if needed, then respond." if not error_hint else "")
             )
         else:
             continuation = (
                 f"[{turn_tool_calls}/{tool_budget} tool calls used, {remaining} remaining] "
-                "Continue." + error_hint + (" Call another tool if needed, or respond to the user." if not error_hint else "")
+                "Continue." + error_hint + breadcrumb
+                + (" Call another tool if needed, or respond to the user." if not error_hint else "")
             )
 
         messages.append({"role": "user", "content": continuation})
