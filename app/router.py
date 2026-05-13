@@ -230,11 +230,18 @@ def _classify_budget(text: str, lowered: str) -> int:
 
     Returns 0 for pure chat (identity, math, general knowledge) so the
     tool loop accepts J's answer without forcing a tool call.
+
+    Budget tiers:
+        0  — pure chat, no tools needed
+        1  — one-shot tool call
+        2  — moderate (two tools or one multi-step keyword)
+        3  — complex multi-step
+        25 — heavy pipeline (many explicit steps)
     """
 
     # Agent mode gets full budget
     if lowered.startswith("/plan"):
-        return 5
+        return 25
 
     # Count distinct tool-like verbs (read + search = 2 tools)
     tool_verbs = sum(1 for v in ("read", "search", "write", "run", "bash", "list", "tree")
@@ -246,6 +253,14 @@ def _classify_budget(text: str, lowered: str) -> int:
 
     # Count multi-step signals
     multi_signals = sum(1 for kw in _MULTI_STEP_KEYWORDS if kw in lowered)
+
+    # Count explicit "then" occurrences (each is a distinct sequential step)
+    then_count = lowered.count("then ")
+
+    # Heavy pipeline: many sequential steps with multiple tool types
+    # e.g. "run_tree ... then run_read each ... then run_write ... then run_read"
+    if then_count >= 3 or (tool_verbs >= 3 and multi_signals >= 3):
+        return 25  # enough room for 17-file sweeps etc.
 
     if multi_signals >= 2 or tool_verbs >= 3:
         return 3  # complex multi-step

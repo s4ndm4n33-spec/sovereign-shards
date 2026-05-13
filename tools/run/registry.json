@@ -83,7 +83,12 @@
     "description": "Recursive directory tree listing. Args: [path] [--depth N]. Default depth 4.",
     "args": [
       "path",
-      "--depth"
+      {
+        "name": "--depth",
+        "type": "str",
+        "required": false,
+        "default": "4"
+      }
     ],
     "side_effect": "read"
   },
@@ -106,8 +111,17 @@
   "run_integrity": {
     "description": "File integrity checker. Args: [path] [--baseline]. Without --baseline, compares current files against saved hashes.",
     "args": [
-      "path",
-      "--baseline"
+      {
+        "name": "path",
+        "type": "str",
+        "required": false,
+        "default": "."
+      },
+      {
+        "name": "--baseline",
+        "type": "str",
+        "required": false
+      }
     ],
     "side_effect": "read"
   },
