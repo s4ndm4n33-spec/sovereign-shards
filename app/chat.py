@@ -471,6 +471,21 @@ def _run_turn(
     logger.append("assistant", reply)
     rlog.event("stage_start", stage="tool_loop")
 
+    # Optional checklist anchor for "read each .py file in <dir>" tasks.
+    pending_read_targets: list[str] = []
+    checklist_match = re.search(
+        r"read\s+each\s+\.py\s+file\s+in\s+([^\n\r]+)",
+        user_message,
+        re.IGNORECASE,
+    )
+    if checklist_match:
+        target_dir = checklist_match.group(1).strip().strip(". ")
+        dir_path = Path(target_dir)
+        if dir_path.is_dir():
+            pending_read_targets = [
+                str(p.as_posix()) for p in sorted(dir_path.glob("*.py"))
+            ]
+
     # Bounded tool loop with circuit breaker
     breaker = CircuitBreaker(tool_budget=tool_budget)
     action_retries = 0
@@ -606,6 +621,9 @@ def _run_turn(
 
         # Log this call for the breadcrumb trail (call_args_str computed earlier)
         turn_tool_log.append(current_call_sig)
+        if tool_name == "run_read" and action.get("args"):
+            read_target = str(action["args"][0]).strip()
+            pending_read_targets = [p for p in pending_read_targets if p != read_target]
 
         # Capture a brief digest of the output for phase summaries
         if not is_error:
@@ -672,6 +690,14 @@ def _run_turn(
                 f"You have {remaining} calls remaining. "
                 f"Continue with the NEXT unfinished step."
             )
+            if pending_read_targets:
+                todo = ", ".join(pending_read_targets[:12])
+                if len(pending_read_targets) > 12:
+                    todo += ", ..."
+                phase_summary += (
+                    f"\n\nChecklist (still unread): {todo}\n"
+                    "Pick the next unread file with run_read."
+                )
             system_msgs = [m for m in messages if m.get("role") == "system"]
             messages.clear()
             messages.extend(system_msgs)
