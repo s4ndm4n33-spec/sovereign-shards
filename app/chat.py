@@ -61,6 +61,7 @@ RETRY_MARGIN = 5  # extra loop iterations for retries / validation errors
 MAX_TOOL_BUDGET = int(os.getenv("J_TOOL_BUDGET", "3"))  # approved calls per turn
 MAX_TOOL_OUTPUT_LINES = 60  # truncate tool output to protect 2048 context
 PHASE_SIZE = 4  # compress context every N tool calls (keeps 7B models on track)
+DEDUP_CACHE: dict[str, str] = {}
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 HOST_GGUF_PATH = r"C:\Jarvis\Models\manifests\registry.ollama.ai\library\gemma4\gemma.gguf"
@@ -472,7 +473,7 @@ def _run_turn(
     # On small context windows (≤2048) memory injection costs more than
     # it's worth — J can run_search memory files when needed instead.
     if client.num_ctx > 2048:
-        messages[:] = reconstruct_context(
+            messages[:] = reconstruct_context(
             messages, task_hint=user_message, max_tokens=client.num_ctx,
         )
     else:
@@ -574,22 +575,15 @@ def _run_turn(
         # If J already made this exact call (same tool + same args),
         # don't execute again — redirect immediately.  This prevents
         # the 7B model from re-reading the same file 4x in a row.
-        if current_call_sig in turn_tool_log:
-            done_list = "\n".join(
-                f"  ✓ {c}" for c in dict.fromkeys(turn_tool_log)
-            )
+        if current_call_sig in DEDUP_CACHE:
+            cached = DEDUP_CACHE[current_call_sig][:500]
             skip_msg = (
-                f"[DUPLICATE SKIPPED] Already called: {current_call_sig}\n"
-                f"Completed so far:\n{done_list}\n"
-                "Pick a DIFFERENT file or tool you have NOT used yet."
+                f"[DUPLICATE — CACHED RESULT] {current_call_sig}\n"
+                f"{cached}"
             )
             print(f"\n{persona.tool_narrate_dedup(current_call_sig)}")
             messages.append({"role": "user", "content": skip_msg})
             logger.append("system", skip_msg)
-            breaker.record_turn(
-                tool=tool_name, args=tool_args,
-                output="[DUPLICATE SKIPPED]", is_error=True,
-            )
             reply = _stream_reply(client, messages)
             print()
             messages.append({"role": assistant_role, "content": reply})
@@ -614,6 +608,7 @@ def _run_turn(
         is_error = tool_result.startswith("[TOOL ERROR]")
         last_tool_error = tool_result if is_error else None
         breaker.record_turn(tool=tool_name, args=tool_args, output=tool_result, is_error=is_error)
+        DEDUP_CACHE[current_call_sig] = tool_result
         time.sleep(PROCESS_PAUSE_SECONDS)
 
         tool_response = (
@@ -811,7 +806,7 @@ def _run_agent_task(
         deps_label = f" (after: {', '.join(step.depends_on)})" if step.depends_on else ""
         safe_print(ui.step_header(step.id, step.goal, step.success_criteria, deps_label))
 
-        step_prompt = build_step_prompt(step, registry.describe())
+        step_prompt = build_step_prompt(step, registry.describe(), tool_budget=2)
         step_reply = _run_turn(
             client, step_messages, logger, rlog, step_prompt, registry, autonomy_mode
         )

@@ -8,6 +8,7 @@ Respects autonomy mode: in 'semi', side-effects require confirmation.
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 from app.agent.contracts import AgentStep, AgentTask, ToolCall, ToolResult
@@ -18,19 +19,25 @@ if TYPE_CHECKING:
 PROCESS_PAUSE_SECONDS = 0.2
 MAX_ACTION_RETRIES = 1
 ACTION_RETRY_PROMPT = "You must call a tool. Respond ONLY with ACTION:{\"tool\":...,\"args\":[...]}"
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+ACCUMULATOR_PATH = BASE_DIR / "memory" / "task_accumulator.md"
 
 
-def build_step_prompt(step: AgentStep, tool_listing: str) -> str:
+def build_step_prompt(step: AgentStep, tool_listing: str, tool_budget: int = 0) -> str:
     """Build a focused prompt for one step."""
-    return (
+    prompt = (
         f"[CURRENT STEP] {step.id}: {step.goal}\n"
         f"[SUCCESS CRITERIA] {step.success_criteria}\n\n"
         f"Available tools:\n{tool_listing}\n\n"
+        "For multi-file tasks, write partial results to disk after every 2-3 reads using write_file. Do not rely on holding all data in context.\n\n"
         "If you need a tool, respond with:\n"
         "ACTION:\n"
         '{"tool": "<name>", "args": [...]}\n\n'
         "Otherwise, respond with your result directly."
     )
+    if tool_budget > 10:
+        prompt += "\nIMPORTANT: Write intermediate results to a scratch file. Context may be compressed between steps."
+    return prompt
 
 
 def needs_confirmation(tool_name: str, registry: "ToolRegistry", mode: str) -> bool:
@@ -62,10 +69,13 @@ def validate_action_payload(action: dict, registry: "ToolRegistry") -> Optional[
 def execute_tool_call(
     call: ToolCall,
     registry: "ToolRegistry",
+    step_goal: str = "",
+    tool_budget: int = 0,
 ) -> ToolResult:
     """Execute a single validated tool call and return the result."""
     time.sleep(PROCESS_PAUSE_SECONDS)
     output = registry.execute(call.name, list(call.args.values()) if isinstance(call.args, dict) else list(call.args))
+    _maybe_append_accumulator(call.name, output, step_goal=step_goal, tool_budget=tool_budget)
 
     ok = not output.startswith("[TOOL ERROR]")
     error = output if not ok else ""
@@ -75,6 +85,20 @@ def execute_tool_call(
         output=output if ok else "",
         error=error,
     )
+
+
+def _maybe_append_accumulator(tool_name: str, output: str, step_goal: str, tool_budget: int) -> None:
+    goal = step_goal.lower()
+    if tool_budget <= 5:
+        return
+    if not any(k in goal for k in ("read", "extract", "gather")):
+        return
+    if tool_name not in ("run_read", "read_file", "run_search"):
+        return
+    ACCUMULATOR_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with ACCUMULATOR_PATH.open("a", encoding="utf-8") as f:
+        f.write(f"\n## {tool_name} @ {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(output[:4000] + "\n")
 
 
 def format_tool_result(result: ToolResult) -> str:
