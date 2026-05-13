@@ -477,6 +477,7 @@ def _run_turn(
     last_tool_error: str | None = None
     turn_tool_calls = 0  # per-turn counter (not cumulative across turns)
     turn_tool_log: list[str] = []  # breadcrumb trail of completed calls
+    turn_tool_digests: list[str] = []  # brief output summaries per call
     max_hops = tool_budget + RETRY_MARGIN  # scale loop with budget
     for hop in range(max_hops):
         action = _extract_action(reply)
@@ -602,6 +603,12 @@ def _run_turn(
         # Log this call for the breadcrumb trail (call_args_str computed earlier)
         turn_tool_log.append(current_call_sig)
 
+        # Capture a brief digest of the output for phase summaries
+        if not is_error:
+            preview_lines = tool_result.strip().split("\n")[:3]
+            preview = "\n  ".join(preview_lines)[:200]
+            turn_tool_digests.append(f"• {current_call_sig}\n  {preview}")
+
         # ── Error-aware nudge: tell J what went wrong so it can fix args ──
         error_hint = ""
         if is_error and remaining > 0:
@@ -649,13 +656,16 @@ def _run_turn(
                 and turn_tool_calls % PHASE_SIZE == 0
                 and remaining > 0):
             phase_num = turn_tool_calls // PHASE_SIZE
+            # Build a digest of what J has gathered (keeps 7B model
+            # oriented without the full verbose tool outputs).
+            digest_block = "\n".join(turn_tool_digests) if turn_tool_digests else "(none)"
             phase_summary = (
                 f"[PHASE {phase_num} COMPLETE — starting phase {phase_num + 1}]\n"
                 f"Original task: {user_message}\n\n"
-                f"Completed ({turn_tool_calls}/{tool_budget} calls): "
-                + ", ".join(turn_tool_log) + ".\n\n"
-                f"Continue with the NEXT step. Do NOT repeat any call listed above. "
-                f"You have {remaining} calls remaining."
+                f"What you've gathered so far:\n{digest_block}\n\n"
+                f"Do NOT repeat any call above. "
+                f"You have {remaining} calls remaining. "
+                f"Continue with the NEXT unfinished step."
             )
             system_msgs = [m for m in messages if m.get("role") == "system"]
             messages.clear()
