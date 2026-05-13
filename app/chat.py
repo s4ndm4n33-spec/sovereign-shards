@@ -57,9 +57,10 @@ from app.router import route as fast_route
 from core.fivemasters import evaluate_code
 
 PROCESS_PAUSE_SECONDS = 0.2
-MAX_TOOL_HOPS = 5  # hard ceiling — never exceed this
+RETRY_MARGIN = 5  # extra loop iterations for retries / validation errors
 MAX_TOOL_BUDGET = int(os.getenv("J_TOOL_BUDGET", "3"))  # approved calls per turn
 MAX_TOOL_OUTPUT_LINES = 60  # truncate tool output to protect 2048 context
+PHASE_SIZE = 4  # compress context every N tool calls (keeps 7B models on track)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = BASE_DIR / "prompts"
@@ -444,7 +445,8 @@ def _run_turn(
     last_tool_error: str | None = None
     turn_tool_calls = 0  # per-turn counter (not cumulative across turns)
     turn_tool_log: list[str] = []  # breadcrumb trail of completed calls
-    for hop in range(MAX_TOOL_HOPS):
+    max_hops = tool_budget + RETRY_MARGIN  # scale loop with budget
+    for hop in range(max_hops):
         action = _extract_action(reply)
         if action is None:
             # Budget-aware answer detection:
@@ -576,6 +578,30 @@ def _run_turn(
 
         messages.append({"role": "user", "content": continuation})
         logger.append("user", continuation)
+
+        # ── Phase break: compress context at phase boundaries ──────
+        # Every PHASE_SIZE calls on high-budget tasks, replace verbose
+        # tool outputs with a compact summary.  This frees context
+        # window for the 7B model so it can stay coherent across many
+        # steps instead of losing the plot after 3-4 calls.
+        if (tool_budget > PHASE_SIZE
+                and turn_tool_calls >= PHASE_SIZE
+                and turn_tool_calls % PHASE_SIZE == 0
+                and remaining > 0):
+            phase_num = turn_tool_calls // PHASE_SIZE
+            phase_summary = (
+                f"[PHASE {phase_num} COMPLETE — starting phase {phase_num + 1}]\n"
+                f"Original task: {user_message}\n\n"
+                f"Completed ({turn_tool_calls}/{tool_budget} calls): "
+                + ", ".join(turn_tool_log) + ".\n\n"
+                f"Continue with the NEXT step. Do NOT repeat any call listed above. "
+                f"You have {remaining} calls remaining."
+            )
+            system_msgs = [m for m in messages if m.get("role") == "system"]
+            messages.clear()
+            messages.extend(system_msgs)
+            messages.append({"role": "user", "content": phase_summary})
+            logger.append("system", f"[Phase {phase_num} context compression]")
 
         time.sleep(PROCESS_PAUSE_SECONDS)
         reply = _stream_reply(client, messages)
