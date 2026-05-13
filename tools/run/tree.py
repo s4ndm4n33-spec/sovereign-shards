@@ -66,6 +66,13 @@ def _walk(path: str, prefix: str, depth: int, max_depth: int, ignore: list[str])
 
 
 def main() -> None:
+    # Force UTF-8 stdout on Windows (cp1252 can't encode box-drawing chars)
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     path = "."
     max_depth = DEFAULT_DEPTH
 

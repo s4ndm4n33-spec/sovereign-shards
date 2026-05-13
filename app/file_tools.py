@@ -70,4 +70,7 @@ def list_dir(path: str) -> str:
         return f"[ERROR] Directory not found: {path}"
     if not p.is_dir():
         return f"[ERROR] Not a directory: {path}"
-    return "\n".join(str(x.name) for x in p.iterdir())
+    # Return full relative paths (e.g. "tools/run/calc.py" not just "calc.py")
+    # so the LLM can reference them directly without reconstructing the path.
+    base = Path(path) if path and path != "." else Path("")
+    return "\n".join(str(base / x.name) for x in p.iterdir())
