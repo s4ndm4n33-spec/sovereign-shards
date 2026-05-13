@@ -253,25 +253,6 @@
         "Append unresolved checklist to phase compression summary prompt"
       ],
       "session": 28
-    },
-    {
-      "id": "M11",
-      "title": "GGUF host/local runtime toggle command",
-      "summary": "Added interactive slash commands to switch llama.cpp model path between shard default and a host GGUF path without editing configuration files.",
-      "files": [
-        "app/chat.py",
-        "ProjectManifest.txt",
-        "docs/USER_MANUAL.md",
-        "docs/MIGRATION_LOG.md",
-        "docs/MIGRATION_LOG.json"
-      ],
-      "actions": [
-        "Add /gguf status command",
-        "Add /gguf host to set LLAMA_MODEL_PATH to host gemma.gguf path",
-        "Add /gguf local to clear overrides and restore default path",
-        "Restart local llama.cpp server after toggle so path change takes effect"
-      ],
-      "session": 29
     }
   ],
   "migration_order": [
@@ -284,8 +265,7 @@
     "M7",
     "M8",
     "M9",
-    "M10",
-    "M11"
+    "M10"
   ],
   "validation": {
     "commands": [
