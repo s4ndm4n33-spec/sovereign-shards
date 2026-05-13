@@ -42,7 +42,7 @@ from app.agent.circuit_breaker import CircuitBreaker
 from app.agent.planner import build_plan_prompt, parse_plan
 from app.agent.refactor import scan_project
 from app.agent.sandbox import validate_before_push
-from app.agent.reflection import should_reflect, build_reflect_prompt, parse_reflected, apply_reflection
+from app.agent.reflection import should_reflect, apply_reflection, compress_entries
 from app.agent.streaming import stream_subprocess
 from app.agent.task_store import save_task, load_task
 from app.agent.verifier import build_verify_prompt, parse_verdict
@@ -207,6 +207,18 @@ def _extract_action(content: str) -> dict | None:
     return None
 
 
+
+
+def _strip_identity_preamble(text: str) -> str:
+    """Strip leaked identity preambles before tool/action parsing."""
+    cleaned = re.sub(r"^\s*I am J[,.].*?(?:\n\n|\n)", "", text, flags=re.IGNORECASE | re.S)
+    marker = cleaned.find("ACTION:")
+    if marker > 0:
+        prefix = cleaned[:marker]
+        if "I am J" in prefix:
+            cleaned = cleaned[marker:]
+    return cleaned.strip()
+
 def _truncate_tool_output(output: str, max_lines: int = MAX_TOOL_OUTPUT_LINES) -> str:
     """Truncate large tool output to protect the 2048 context window.
 
@@ -299,7 +311,7 @@ def _llama_cpp_chat(client: RuntimeConfig, messages: list[dict[str, str]]):
         "max_tokens": client.num_predict,
         "temperature": client.temperature,
         "top_p": client.top_p,
-        "stop": list(client.stop_tokens),
+        "stop": list(client.stop_tokens) + ["I am J"],
         "repeat_penalty": client.repeat_penalty,
         "frequency_penalty": client.repeat_penalty - 1.0,
     }
@@ -421,14 +433,16 @@ def _maybe_auto_reflect(
     if not entries:
         return
     print(f"\n{ui.stark_blue(persona.reflect_start(len(entries), working_memory.size_bytes()))}")
-    rprompt = build_reflect_prompt(entries)
-    messages.append({"role": "user", "content": rprompt})
-    messages[:] = trim_context(messages, max_tokens=client.num_ctx)
-    raw = _stream_reply(client, messages)
-    print()
-    assistant_role = _assistant_role(client)
-    messages.append({"role": assistant_role, "content": raw})
-    consolidated = parse_reflected(raw)
+    def _llm_reflect(prompt: str) -> str:
+        messages.append({"role": "user", "content": prompt})
+        messages[:] = trim_context(messages, max_tokens=client.num_ctx)
+        raw = _stream_reply(client, messages)
+        print()
+        assistant_role = _assistant_role(client)
+        messages.append({"role": assistant_role, "content": raw})
+        return raw
+
+    consolidated = compress_entries(entries, _llm_reflect)
     if consolidated:
         apply_reflection(consolidated)
         print(ui.stark_blue(persona.reflect_done(len(entries), len(consolidated))))
@@ -496,6 +510,7 @@ def _run_turn(
     turn_tool_digests: list[str] = []  # brief output summaries per call
     max_hops = tool_budget + RETRY_MARGIN  # scale loop with budget
     for hop in range(max_hops):
+        reply = _strip_identity_preamble(reply)
         action = _extract_action(reply)
         if action is None:
             # Budget-aware answer detection:
@@ -1288,13 +1303,15 @@ def run_chat(
                     continue
                 entries = working_memory.read_all()
                 print(f"[REFLECT] Compressing {len(entries)} entries...")
-                rprompt = build_reflect_prompt(entries)
-                messages.append({"role": "user", "content": rprompt})
-                messages[:] = trim_context(messages, max_tokens=client.num_ctx)
-                raw = _stream_reply(client, messages)
-                print()
-                messages.append({"role": _assistant_role(client), "content": raw})
-                consolidated = parse_reflected(raw)
+                def _llm_reflect(prompt: str) -> str:
+                    messages.append({"role": "user", "content": prompt})
+                    messages[:] = trim_context(messages, max_tokens=client.num_ctx)
+                    raw = _stream_reply(client, messages)
+                    print()
+                    messages.append({"role": _assistant_role(client), "content": raw})
+                    return raw
+
+                consolidated = compress_entries(entries, _llm_reflect)
                 if consolidated:
                     apply_reflection(consolidated)
                     print(f"[REFLECT OK] {len(entries)} → {len(consolidated)} entries")
@@ -1531,13 +1548,15 @@ def run_chat(
                 if should_reflect():
                     entries = working_memory.read_all()
                     print(f"\n{ui.stark_blue(persona.reflect_start(len(entries), working_memory.size_bytes()))}")
-                    rprompt = build_reflect_prompt(entries)
-                    messages.append({"role": "user", "content": rprompt})
-                    messages[:] = trim_context(messages, max_tokens=client.num_ctx)
-                    raw = _stream_reply(client, messages)
-                    print()
-                    messages.append({"role": _assistant_role(client), "content": raw})
-                    consolidated = parse_reflected(raw)
+                    def _llm_reflect(prompt: str) -> str:
+                        messages.append({"role": "user", "content": prompt})
+                        messages[:] = trim_context(messages, max_tokens=client.num_ctx)
+                        raw = _stream_reply(client, messages)
+                        print()
+                        messages.append({"role": _assistant_role(client), "content": raw})
+                        return raw
+
+                    consolidated = compress_entries(entries, _llm_reflect)
                     if consolidated:
                         apply_reflection(consolidated)
                         print(ui.stark_blue(persona.reflect_done(len(entries), len(consolidated))))
