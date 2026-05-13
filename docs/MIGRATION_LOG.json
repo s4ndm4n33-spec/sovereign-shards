@@ -235,6 +235,43 @@
       ],
       "commits": "1b71bad through 2db8a24",
       "session": 27
+    },
+    {
+      "id": "M10",
+      "title": "Phase-compression continuity anchor for serial reads",
+      "summary": "Added explicit unread-file checklist tracking for prompts that ask to read each Python file in a directory, then reinjected the unresolved checklist in phase summaries to keep long tool runs on-task.",
+      "files": [
+        "app/chat.py",
+        "ProjectManifest.txt",
+        "docs/MIGRATION_LOG.md",
+        "docs/MIGRATION_LOG.json"
+      ],
+      "actions": [
+        "Detect 'read each .py file in <dir>' prompts in _run_turn",
+        "Enumerate directory Python files into pending_read_targets",
+        "Remove files from pending list after run_read calls",
+        "Append unresolved checklist to phase compression summary prompt"
+      ],
+      "session": 28
+    },
+    {
+      "id": "M11",
+      "title": "GGUF host/local runtime toggle command",
+      "summary": "Added interactive slash commands to switch llama.cpp model path between shard default and a host GGUF path without editing configuration files.",
+      "files": [
+        "app/chat.py",
+        "ProjectManifest.txt",
+        "docs/USER_MANUAL.md",
+        "docs/MIGRATION_LOG.md",
+        "docs/MIGRATION_LOG.json"
+      ],
+      "actions": [
+        "Add /gguf status command",
+        "Add /gguf host to set LLAMA_MODEL_PATH to host gemma.gguf path",
+        "Add /gguf local to clear overrides and restore default path",
+        "Restart local llama.cpp server after toggle so path change takes effect"
+      ],
+      "session": 29
     }
   ],
   "migration_order": [
@@ -246,7 +283,9 @@
     "M6",
     "M7",
     "M8",
-    "M9"
+    "M9",
+    "M10",
+    "M11"
   ],
   "validation": {
     "commands": [

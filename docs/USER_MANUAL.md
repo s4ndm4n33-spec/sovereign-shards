@@ -364,6 +364,9 @@ REQUIRE_GPU=false                  # Set true if you have GPU + CUDA llama.cpp
 | `/snapshot` | Print hardware snapshot (CPU, RAM, disk, platform) |
 | `/index` | Index the current project directory for context |
 | `/mode <level>` | Change autonomy level mid-session |
+| `/gguf` | Show current GGUF path mode and active model file |
+| `/gguf host` | Switch runtime to host GGUF path (`C:\Jarvis\Models\manifests\registry.ollama.ai\library\gemma4\gemma.gguf`) |
+| `/gguf local` | Switch runtime back to default shard/local GGUF path |
 | `/memory` | Show recent working memory entries and stats |
 | `/reflect` | Manually trigger memory compression |
 | `/sandbox` | Run the 5-check validation gauntlet on the current project |

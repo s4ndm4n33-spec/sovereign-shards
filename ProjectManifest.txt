@@ -1,6 +1,6 @@
 # Sovereign Shards — Project Manifest
-# Updated: 2026-05-11 (Session 20)
-# Status: Phase 1 COMPLETE, Phase 2 in progress
+# Updated: 2026-05-13 (Session 28)
+# Status: Phase 1 COMPLETE, Phase 2 in progress (continuity hardening)
 
 ## Identity
 
@@ -63,6 +63,9 @@ quit / exit      — End session
 /model <name>    — Hot-swap model (e.g. /model qwen2.5-coder:14b)
 /mode <level>    — Change autonomy (manual/semi/auto-safe/auto-full)
 /memory          — Show working memory
+/gguf            — Show active GGUF path mode
+/gguf host       — Switch to host GGUF (C:\Jarvis\...\gemma.gguf)
+/gguf local      — Switch back to shard/default GGUF
 /reflect         — Manually compress working memory
 /integrity       — Check file integrity
 /refactor        — Cross-file AST analysis
@@ -94,3 +97,8 @@ Phase IV — Stabilize v1.0 (Sessions 1-19, Phase 1 COMPLETE)
 Phase V — Multi-Step Agent (Session 20+, Phase 2 IN PROGRESS)
   Task buffer, plan/execute mode, working memory hardening, circuit breaker
   enforcement. Goal: J executes multi-file tasks via decomposed steps.
+
+Phase VI — Continuity Hardening (Session 28)
+  Added phase-compression continuity reinforcement for long read pipelines:
+  explicit unread-file checklist tracking when prompts request reading each
+  Python file in a directory, with checklist updates after run_read calls.
