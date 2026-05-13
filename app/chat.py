@@ -483,6 +483,9 @@ def _run_turn(
 
         tool_name = action.get("tool", "")
         tool_args = str(action.get("args", []))
+        # Pre-compute call signature for dedup + breadcrumbs
+        call_args_str = " ".join(str(a) for a in action.get("args", []))
+        current_call_sig = f"{tool_name} {call_args_str}".strip()
 
         # Circuit breaker check (before executing)
         trip = breaker.check()
@@ -497,6 +500,32 @@ def _run_turn(
             # Inject recovery prompt and let the model try a different approach
             messages.append({"role": "user", "content": trip.recovery_prompt})
             logger.append("system", trip.recovery_prompt)
+            reply = _stream_reply(client, messages)
+            print()
+            messages.append({"role": assistant_role, "content": reply})
+            logger.append("assistant", reply)
+            continue
+
+        # ── Dedup guard: skip exact duplicate tool calls ────────
+        # If J already made this exact call (same tool + same args),
+        # don't execute again — redirect immediately.  This prevents
+        # the 7B model from re-reading the same file 4x in a row.
+        if current_call_sig in turn_tool_log:
+            done_list = "\n".join(
+                f"  ✓ {c}" for c in dict.fromkeys(turn_tool_log)
+            )
+            skip_msg = (
+                f"[DUPLICATE SKIPPED] Already called: {current_call_sig}\n"
+                f"Completed so far:\n{done_list}\n"
+                "Pick a DIFFERENT file or tool you have NOT used yet."
+            )
+            print(f"\n🔁 Dedup skip: {current_call_sig}")
+            messages.append({"role": "user", "content": skip_msg})
+            logger.append("system", skip_msg)
+            breaker.record_turn(
+                tool=tool_name, args=tool_args,
+                output="[DUPLICATE SKIPPED]", is_error=True,
+            )
             reply = _stream_reply(client, messages)
             print()
             messages.append({"role": assistant_role, "content": reply})
@@ -538,9 +567,8 @@ def _run_turn(
         turn_tool_calls += 1
         remaining = tool_budget - turn_tool_calls
 
-        # Log this call for the breadcrumb trail
-        call_args_str = " ".join(str(a) for a in action.get("args", []))
-        turn_tool_log.append(f"{action.get('tool')} {call_args_str}".strip())
+        # Log this call for the breadcrumb trail (call_args_str computed earlier)
+        turn_tool_log.append(current_call_sig)
 
         # ── Error-aware nudge: tell J what went wrong so it can fix args ──
         error_hint = ""
