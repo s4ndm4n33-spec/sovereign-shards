@@ -26,11 +26,56 @@ REFLECT_PROMPT = (
     "No prose, no markdown fences."
 )
 
+MAX_ENTRIES_JSON_CHARS = 4096
+BATCH_SIZE = 25
+
 
 def build_reflect_prompt(entries: list[dict], target: int = 5) -> str:
     """Build the reflection/compression prompt."""
-    formatted = json.dumps(entries, indent=1, ensure_ascii=False)
+    limited = list(entries)
+    formatted = json.dumps(limited, indent=1, ensure_ascii=False)
+    while len(formatted) > MAX_ENTRIES_JSON_CHARS and len(limited) > 1:
+        limited = limited[1:]
+        formatted = json.dumps(limited, indent=1, ensure_ascii=False)
     return REFLECT_PROMPT.format(n=len(entries), target=target, entries=formatted)
+
+
+def rule_based_compress(entries: list[dict]) -> list[dict]:
+    """Deterministic fallback compression if the model fails."""
+    keep: list[dict] = []
+    last_ten = entries[-10:]
+    for entry in entries:
+        text = f"{entry.get('step', '')} {entry.get('result', '')} {entry.get('issue', '')} {entry.get('decision', '')}".lower()
+        if entry in last_ten or any(k in text for k in ("error", "decision", "issue")):
+            keep.append(entry)
+    seen = set()
+    out: list[dict] = []
+    for entry in keep:
+        key = json.dumps(entry, sort_keys=True, ensure_ascii=False)
+        if key not in seen:
+            out.append(entry)
+            seen.add(key)
+    return out
+
+
+def compress_entries(entries: list[dict], llm_call, target: int = 5) -> list[dict]:
+    """Compress entries in batches; fallback deterministically on failures."""
+    if not entries:
+        return []
+    combined: list[dict] = []
+    for i in range(0, len(entries), BATCH_SIZE):
+        batch = entries[i:i + BATCH_SIZE]
+        batch_target = max(3, min(target, len(batch)))
+        consolidated: list[dict] = []
+        for _ in range(2):
+            raw = llm_call(build_reflect_prompt(batch, target=batch_target))
+            consolidated = parse_reflected(raw)
+            if consolidated:
+                break
+        if not consolidated:
+            consolidated = rule_based_compress(batch)
+        combined.extend(consolidated)
+    return combined
 
 
 def parse_reflected(raw: str) -> list[dict]:

@@ -141,6 +141,19 @@ class ToolRegistry:
             spec = self.specs[tool_name]
         except KeyError:
             return json.dumps({"ok": False, "error": f"[TOOL ERROR] Unknown tool: {tool_name}"}, ensure_ascii=True, sort_keys=True)
+        effect = self.get_side_effect(tool_name)
+        if effect in {"write", "delete"} and effect != "read":
+            return json.dumps(
+                {
+                    "ok": False,
+                    "error": (
+                        f"[TOOL ERROR] Blocked side effect '{effect}' for tool '{tool_name}'. "
+                        "Only read side effects are permitted."
+                    ),
+                },
+                ensure_ascii=True,
+                sort_keys=True,
+            )
         mapped: dict[str, Any] = {}
         for index, arg_spec in enumerate(spec.args):
             if index < len(tool_args):
