@@ -576,7 +576,7 @@ def _run_turn(
         # If J already made this exact call (same tool + same args),
         # don't execute again — redirect immediately.  This prevents
         # the 7B model from re-reading the same file 4x in a row.
-        if effect == "read" and current_call_sig in DEDUP_CACHE:
+        if current_call_sig in DEDUP_CACHE:
             cached = DEDUP_CACHE[current_call_sig][:500]
             skip_msg = (
                 f"[DUPLICATE — CACHED RESULT] {current_call_sig}\n"
@@ -609,8 +609,7 @@ def _run_turn(
         is_error = tool_result.startswith("[TOOL ERROR]")
         last_tool_error = tool_result if is_error else None
         breaker.record_turn(tool=tool_name, args=tool_args, output=tool_result, is_error=is_error)
-        if effect == "read":
-            DEDUP_CACHE[current_call_sig] = tool_result
+        DEDUP_CACHE[current_call_sig] = tool_result
         time.sleep(PROCESS_PAUSE_SECONDS)
 
         tool_response = (
