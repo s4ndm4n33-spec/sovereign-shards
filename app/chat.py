@@ -58,7 +58,7 @@ from core.fivemasters import evaluate_code
 
 PROCESS_PAUSE_SECONDS = 0.2
 RETRY_MARGIN = 5  # extra loop iterations for retries / validation errors
-MAX_TOOL_BUDGET = int(os.getenv("J_TOOL_BUDGET", "3"))  # approved calls per turn
+MAX_TOOL_BUDGET = int(os.getenv("J_TOOL_BUDGET", "6"))  # approved calls per turn
 MAX_TOOL_OUTPUT_LINES = 60  # truncate tool output to protect 2048 context
 PHASE_SIZE = 4  # compress context every N tool calls (keeps 7B models on track)
 DEDUP_CACHE: dict[str, str] = {}
@@ -1163,8 +1163,9 @@ def run_chat(
                 rlog.event("fast_route", tool=route_result.tool_name)
             else:
                 print(ui.j_stream_start(), end="", flush=True)
+                budget = max(route_result.tool_budget, MAX_TOOL_BUDGET)
                 _run_turn(client, messages, logger, rlog, initial_message, registry, autonomy_mode,
-                          tool_budget=route_result.tool_budget)
+                          tool_budget=budget)
             return
 
         while True:
@@ -1534,7 +1535,7 @@ def run_chat(
                 continue
 
             try:
-                budget = route_result.tool_budget
+                budget = max(route_result.tool_budget, MAX_TOOL_BUDGET)
                 print(ui.j_stream_start(), end="", flush=True)
                 _run_turn(
                     client, messages, logger, rlog, user_message, registry, autonomy_mode,
