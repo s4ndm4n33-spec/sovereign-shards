@@ -14,6 +14,7 @@ models/*.bin
 # Logs (local only)
 logs/
 *.log
+.j_chain.json
 
 # Environment
 .env

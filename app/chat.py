@@ -58,7 +58,9 @@ from core.fivemasters import evaluate_code
 
 PROCESS_PAUSE_SECONDS = 0.2
 RETRY_MARGIN = 5  # extra loop iterations for retries / validation errors
-MAX_TOOL_BUDGET = int(os.getenv("J_TOOL_BUDGET", "6"))  # approved calls per turn
+MAX_TOOL_BUDGET = int(os.getenv("J_TOOL_BUDGET", "3"))  # approved calls per turn
+CHAIN_LOG_PATH = Path(".j_chain.json")
+MAX_CHAIN_TURNS = int(os.getenv("J_MAX_CHAIN_TURNS", "10"))
 MAX_TOOL_OUTPUT_LINES = 60  # truncate tool output to protect 2048 context
 PHASE_SIZE = 4  # compress context every N tool calls (keeps 7B models on track)
 DEDUP_CACHE: dict[str, str] = {}
@@ -658,6 +660,68 @@ def _run_turn(
                 task_hint += "..."
             breadcrumb += f" Original task: {task_hint}"
 
+        if remaining <= 0 and turn_tool_calls >= 3:
+            completed_steps: list[dict[str, object]] = []
+            for idx, call_sig in enumerate(turn_tool_log, start=1):
+                tool = call_sig.split(" ", 1)[0] if call_sig else ""
+                args_text = call_sig.split(" ", 1)[1] if " " in call_sig else ""
+                args = args_text.split() if args_text else []
+                summary_text = ""
+                if idx - 1 < len(turn_tool_digests):
+                    digest = turn_tool_digests[idx - 1]
+                    summary_text = digest.split("\n", 1)[1].strip() if "\n" in digest else digest.strip()
+                completed_steps.append(
+                    {"step": idx, "tool": tool, "args": args, "summary": summary_text[:200]}
+                )
+
+            key_facts: list[str] = []
+            for digest in turn_tool_digests:
+                fact_lines = [line.strip() for line in digest.splitlines() if line.strip()]
+                if len(fact_lines) >= 2:
+                    key_facts.append(fact_lines[1][:200])
+
+            checkpoint_prompt = (
+                "[CHECKPOINT] Budget spent. List remaining steps for this task as a short numbered list. "
+                "Do NOT call a tool."
+            )
+            messages.append({"role": "user", "content": checkpoint_prompt})
+            logger.append("user", checkpoint_prompt)
+            checkpoint_reply = _stream_reply(client, messages)
+            print()
+            messages.append({"role": assistant_role, "content": checkpoint_reply})
+            logger.append("assistant", checkpoint_reply)
+
+            chain_data = {
+                "task": user_message,
+                "status": "in_progress",
+                "turn": 1,
+                "completed": completed_steps,
+                "next_steps": checkpoint_reply,
+                "key_facts": key_facts,
+            }
+            if CHAIN_LOG_PATH.exists():
+                try:
+                    existing = loads(CHAIN_LOG_PATH.read_text(encoding="utf-8"))
+                    prior_completed = existing.get("completed", []) if isinstance(existing, dict) else []
+                    prior_turn = int(existing.get("turn", 0)) if isinstance(existing, dict) else 0
+                    chain_data["task"] = existing.get("task", user_message) if isinstance(existing, dict) else user_message
+                    chain_data["turn"] = prior_turn + 1
+                    chain_data["completed"] = prior_completed + completed_steps
+                except Exception:
+                    pass
+
+            next_steps_text = (checkpoint_reply or "").strip().lower()
+            if not next_steps_text or "done" in next_steps_text or "complete" in next_steps_text:
+                chain_data["status"] = "complete"
+
+            CHAIN_LOG_PATH.write_text(dumps(chain_data, indent=2), encoding="utf-8")
+            print(f"\n[Chain checkpoint — turn {chain_data['turn']}, {len(chain_data['completed'])} steps done]")
+            rlog.event("turn_complete", chars=len(checkpoint_reply))
+            wm_entry = working_memory.compress_turn(user_message, checkpoint_reply)
+            working_memory.append(**wm_entry)
+            _maybe_auto_reflect(client, messages, logger)
+            return checkpoint_reply
+
         if remaining <= 0:
             # Budget spent — force answer, no more tools
             continuation = (
@@ -1164,8 +1228,46 @@ def run_chat(
             else:
                 print(ui.j_stream_start(), end="", flush=True)
                 budget = max(route_result.tool_budget, MAX_TOOL_BUDGET)
-                _run_turn(client, messages, logger, rlog, initial_message, registry, autonomy_mode,
-                          tool_budget=budget)
+                active_prompt = initial_message
+                while True:
+                    if CHAIN_LOG_PATH.exists():
+                        chain = loads(CHAIN_LOG_PATH.read_text(encoding="utf-8"))
+                        if chain.get("status") == "in_progress":
+                            if int(chain.get("turn", 0)) >= MAX_CHAIN_TURNS:
+                                chain["status"] = "complete"
+                                CHAIN_LOG_PATH.write_text(dumps(chain, indent=2), encoding="utf-8")
+                                print(f"\n[Chain safety cutoff reached at turn {MAX_CHAIN_TURNS}; marking complete.]")
+                                CHAIN_LOG_PATH.unlink(missing_ok=True)
+                                break
+                            completed = chain.get("completed", [])
+                            completed_lines = "\n".join(
+                                f"{i}. {step.get('tool', '')} {step.get('args', [])} — {step.get('summary', '')}".strip()
+                                for i, step in enumerate(completed, start=1)
+                            ) or "1. (none)"
+                            facts = chain.get("key_facts", [])
+                            facts_lines = "\n".join(f"- {fact}" for fact in facts) or "- (none)"
+                            active_prompt = (
+                                f"Continuing task (turn {int(chain.get('turn', 0)) + 1}).\n"
+                                f"Original: {chain.get('task', initial_message)}\n\n"
+                                f"Completed:\n{completed_lines}\n\n"
+                                f"Remaining:\n{chain.get('next_steps', '')}\n\n"
+                                f"Key facts:\n{facts_lines}\n\n"
+                                "You have 3 tool calls. Continue where you left off."
+                            )
+                    _run_turn(client, messages, logger, rlog, active_prompt, registry, autonomy_mode, tool_budget=budget)
+                    if not CHAIN_LOG_PATH.exists():
+                        break
+                    chain = loads(CHAIN_LOG_PATH.read_text(encoding="utf-8"))
+                    if chain.get("status") != "in_progress":
+                        summary_prompt = "[TASK COMPLETE] Summarize what you accomplished."
+                        messages.append({"role": "user", "content": summary_prompt})
+                        logger.append("user", summary_prompt)
+                        completion = _stream_reply(client, messages)
+                        print()
+                        messages.append({"role": _assistant_role(client), "content": completion})
+                        logger.append("assistant", completion)
+                        CHAIN_LOG_PATH.unlink(missing_ok=True)
+                        break
             return
 
         while True:
@@ -1537,10 +1639,49 @@ def run_chat(
             try:
                 budget = max(route_result.tool_budget, MAX_TOOL_BUDGET)
                 print(ui.j_stream_start(), end="", flush=True)
-                _run_turn(
-                    client, messages, logger, rlog, user_message, registry, autonomy_mode,
-                    tool_budget=budget,
-                )
+                active_prompt = user_message
+                while True:
+                    if CHAIN_LOG_PATH.exists():
+                        chain = loads(CHAIN_LOG_PATH.read_text(encoding="utf-8"))
+                        if chain.get("status") == "in_progress":
+                            if int(chain.get("turn", 0)) >= MAX_CHAIN_TURNS:
+                                chain["status"] = "complete"
+                                CHAIN_LOG_PATH.write_text(dumps(chain, indent=2), encoding="utf-8")
+                                print(f"\n[Chain safety cutoff reached at turn {MAX_CHAIN_TURNS}; marking complete.]")
+                                CHAIN_LOG_PATH.unlink(missing_ok=True)
+                                break
+                            completed = chain.get("completed", [])
+                            completed_lines = "\n".join(
+                                f"{i}. {step.get('tool', '')} {step.get('args', [])} — {step.get('summary', '')}".strip()
+                                for i, step in enumerate(completed, start=1)
+                            ) or "1. (none)"
+                            facts = chain.get("key_facts", [])
+                            facts_lines = "\n".join(f"- {fact}" for fact in facts) or "- (none)"
+                            active_prompt = (
+                                f"Continuing task (turn {int(chain.get('turn', 0)) + 1}).\n"
+                                f"Original: {chain.get('task', user_message)}\n\n"
+                                f"Completed:\n{completed_lines}\n\n"
+                                f"Remaining:\n{chain.get('next_steps', '')}\n\n"
+                                f"Key facts:\n{facts_lines}\n\n"
+                                "You have 3 tool calls. Continue where you left off."
+                            )
+                    _run_turn(
+                        client, messages, logger, rlog, active_prompt, registry, autonomy_mode,
+                        tool_budget=budget,
+                    )
+                    if not CHAIN_LOG_PATH.exists():
+                        break
+                    chain = loads(CHAIN_LOG_PATH.read_text(encoding="utf-8"))
+                    if chain.get("status") != "in_progress":
+                        summary_prompt = "[TASK COMPLETE] Summarize what you accomplished."
+                        messages.append({"role": "user", "content": summary_prompt})
+                        logger.append("user", summary_prompt)
+                        completion = _stream_reply(client, messages)
+                        print()
+                        messages.append({"role": _assistant_role(client), "content": completion})
+                        logger.append("assistant", completion)
+                        CHAIN_LOG_PATH.unlink(missing_ok=True)
+                        break
                 # Weight-triggered reflection
                 if should_reflect():
                     entries = working_memory.read_all()
