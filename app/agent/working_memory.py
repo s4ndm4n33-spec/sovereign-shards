@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from pathlib import Path
 
@@ -15,6 +16,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 MEMORY_DIR = BASE_DIR / "memory"
 WM_PATH = MEMORY_DIR / "working_memory.jsonl"
 MAX_WM_BYTES = 32 * 1024  # 32 KB — reflection trigger threshold
+
+
+def strip_identity_bleed(text: str) -> str:
+    """Remove known persona preambles from tool/result text."""
+    cleaned = re.sub(r"I am J[,.].*?(?=\n|$)", "", text, flags=re.IGNORECASE)
+    cleaned = re.sub(r"I am J, built on.*?(?=\n\n|$)", "", cleaned, flags=re.IGNORECASE)
+    kept: list[str] = []
+    for line in cleaned.splitlines():
+        lower = line.strip().lower()
+        if lower.startswith("i am j") and not any(tok in lower for tok in ("def ", "class ", "import ", "=")):
+            continue
+        kept.append(line)
+    return "\n".join(kept).strip()
 
 
 def _ensure_dir() -> None:
@@ -28,7 +42,7 @@ def append(step: str, result: str, issue: str | None = None,
     FAT32-safe: fsync after each append so the entry survives power loss.
     """
     _ensure_dir()
-    entry: dict = {"ts": time.time(), "step": step, "result": result}
+    entry: dict = {"ts": time.time(), "step": step, "result": strip_identity_bleed(result)}
     if issue:
         entry["issue"] = issue
     if decision:
@@ -103,7 +117,7 @@ def format_for_context(entries: list[dict]) -> str:
             parts.append(f"  ⚠ {e['issue']}")
         if e.get("decision"):
             parts.append(f"  → {e['decision']}")
-        lines.append("\n".join(parts))
+        lines.extend(parts)
     return "\n".join(lines)
 
 

@@ -42,7 +42,7 @@ from app.agent.circuit_breaker import CircuitBreaker
 from app.agent.planner import build_plan_prompt, parse_plan
 from app.agent.refactor import scan_project
 from app.agent.sandbox import validate_before_push
-from app.agent.reflection import should_reflect, build_reflect_prompt, parse_reflected, apply_reflection
+from app.agent.reflection import should_reflect, apply_reflection, compress_entries
 from app.agent.streaming import stream_subprocess
 from app.agent.task_store import save_task, load_task
 from app.agent.verifier import build_verify_prompt, parse_verdict
@@ -58,9 +58,10 @@ from core.fivemasters import evaluate_code
 
 PROCESS_PAUSE_SECONDS = 0.2
 RETRY_MARGIN = 5  # extra loop iterations for retries / validation errors
-MAX_TOOL_BUDGET = int(os.getenv("J_TOOL_BUDGET", "3"))  # approved calls per turn
+MAX_TOOL_BUDGET = int(os.getenv("J_TOOL_BUDGET", "6"))  # approved calls per turn
 MAX_TOOL_OUTPUT_LINES = 60  # truncate tool output to protect 2048 context
 PHASE_SIZE = 4  # compress context every N tool calls (keeps 7B models on track)
+DEDUP_CACHE: dict[str, str] = {}
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 HOST_GGUF_PATH = r"C:\Jarvis\Models\manifests\registry.ollama.ai\library\gemma4\gemma.gguf"
@@ -207,6 +208,18 @@ def _extract_action(content: str) -> dict | None:
     return None
 
 
+
+
+def _strip_identity_preamble(text: str) -> str:
+    """Strip leaked identity preambles before tool/action parsing."""
+    cleaned = re.sub(r"^\s*I am J[,.].*?(?:\n\n|\n)", "", text, flags=re.IGNORECASE | re.S)
+    marker = cleaned.find("ACTION:")
+    if marker > 0:
+        prefix = cleaned[:marker]
+        if "I am J" in prefix:
+            cleaned = cleaned[marker:]
+    return cleaned.strip()
+
 def _truncate_tool_output(output: str, max_lines: int = MAX_TOOL_OUTPUT_LINES) -> str:
     """Truncate large tool output to protect the 2048 context window.
 
@@ -299,7 +312,7 @@ def _llama_cpp_chat(client: RuntimeConfig, messages: list[dict[str, str]]):
         "max_tokens": client.num_predict,
         "temperature": client.temperature,
         "top_p": client.top_p,
-        "stop": list(client.stop_tokens),
+        "stop": list(client.stop_tokens) + ["I am J"],
         "repeat_penalty": client.repeat_penalty,
         "frequency_penalty": client.repeat_penalty - 1.0,
     }
@@ -421,14 +434,16 @@ def _maybe_auto_reflect(
     if not entries:
         return
     print(f"\n{ui.stark_blue(persona.reflect_start(len(entries), working_memory.size_bytes()))}")
-    rprompt = build_reflect_prompt(entries)
-    messages.append({"role": "user", "content": rprompt})
-    messages[:] = trim_context(messages, max_tokens=client.num_ctx)
-    raw = _stream_reply(client, messages)
-    print()
-    assistant_role = _assistant_role(client)
-    messages.append({"role": assistant_role, "content": raw})
-    consolidated = parse_reflected(raw)
+    def _llm_reflect(prompt: str) -> str:
+        messages.append({"role": "user", "content": prompt})
+        messages[:] = trim_context(messages, max_tokens=client.num_ctx)
+        raw = _stream_reply(client, messages)
+        print()
+        assistant_role = _assistant_role(client)
+        messages.append({"role": assistant_role, "content": raw})
+        return raw
+
+    consolidated = compress_entries(entries, _llm_reflect)
     if consolidated:
         apply_reflection(consolidated)
         print(ui.stark_blue(persona.reflect_done(len(entries), len(consolidated))))
@@ -458,7 +473,7 @@ def _run_turn(
     # On small context windows (≤2048) memory injection costs more than
     # it's worth — J can run_search memory files when needed instead.
     if client.num_ctx > 2048:
-        messages[:] = reconstruct_context(
+            messages[:] = reconstruct_context(
             messages, task_hint=user_message, max_tokens=client.num_ctx,
         )
     else:
@@ -496,6 +511,7 @@ def _run_turn(
     turn_tool_digests: list[str] = []  # brief output summaries per call
     max_hops = tool_budget + RETRY_MARGIN  # scale loop with budget
     for hop in range(max_hops):
+        reply = _strip_identity_preamble(reply)
         action = _extract_action(reply)
         if action is None:
             # Budget-aware answer detection:
@@ -532,6 +548,7 @@ def _run_turn(
 
         tool_name = action.get("tool", "")
         tool_args = str(action.get("args", []))
+        effect = registry.get_side_effect(tool_name)
         # Pre-compute call signature for dedup + breadcrumbs
         call_args_str = " ".join(str(a) for a in action.get("args", []))
         current_call_sig = f"{tool_name} {call_args_str}".strip()
@@ -559,22 +576,15 @@ def _run_turn(
         # If J already made this exact call (same tool + same args),
         # don't execute again — redirect immediately.  This prevents
         # the 7B model from re-reading the same file 4x in a row.
-        if current_call_sig in turn_tool_log:
-            done_list = "\n".join(
-                f"  ✓ {c}" for c in dict.fromkeys(turn_tool_log)
-            )
+        if effect == "read" and current_call_sig in DEDUP_CACHE:
+            cached = DEDUP_CACHE[current_call_sig][:500]
             skip_msg = (
-                f"[DUPLICATE SKIPPED] Already called: {current_call_sig}\n"
-                f"Completed so far:\n{done_list}\n"
-                "Pick a DIFFERENT file or tool you have NOT used yet."
+                f"[DUPLICATE — CACHED RESULT] {current_call_sig}\n"
+                f"{cached}"
             )
             print(f"\n{persona.tool_narrate_dedup(current_call_sig)}")
             messages.append({"role": "user", "content": skip_msg})
             logger.append("system", skip_msg)
-            breaker.record_turn(
-                tool=tool_name, args=tool_args,
-                output="[DUPLICATE SKIPPED]", is_error=True,
-            )
             reply = _stream_reply(client, messages)
             print()
             messages.append({"role": assistant_role, "content": reply})
@@ -599,6 +609,8 @@ def _run_turn(
         is_error = tool_result.startswith("[TOOL ERROR]")
         last_tool_error = tool_result if is_error else None
         breaker.record_turn(tool=tool_name, args=tool_args, output=tool_result, is_error=is_error)
+        if effect == "read":
+            DEDUP_CACHE[current_call_sig] = tool_result
         time.sleep(PROCESS_PAUSE_SECONDS)
 
         tool_response = (
@@ -796,7 +808,7 @@ def _run_agent_task(
         deps_label = f" (after: {', '.join(step.depends_on)})" if step.depends_on else ""
         safe_print(ui.step_header(step.id, step.goal, step.success_criteria, deps_label))
 
-        step_prompt = build_step_prompt(step, registry.describe())
+        step_prompt = build_step_prompt(step, registry.describe(), tool_budget=2)
         step_reply = _run_turn(
             client, step_messages, logger, rlog, step_prompt, registry, autonomy_mode
         )
@@ -1152,8 +1164,9 @@ def run_chat(
                 rlog.event("fast_route", tool=route_result.tool_name)
             else:
                 print(ui.j_stream_start(), end="", flush=True)
+                budget = max(route_result.tool_budget, MAX_TOOL_BUDGET)
                 _run_turn(client, messages, logger, rlog, initial_message, registry, autonomy_mode,
-                          tool_budget=route_result.tool_budget)
+                          tool_budget=budget)
             return
 
         while True:
@@ -1288,13 +1301,15 @@ def run_chat(
                     continue
                 entries = working_memory.read_all()
                 print(f"[REFLECT] Compressing {len(entries)} entries...")
-                rprompt = build_reflect_prompt(entries)
-                messages.append({"role": "user", "content": rprompt})
-                messages[:] = trim_context(messages, max_tokens=client.num_ctx)
-                raw = _stream_reply(client, messages)
-                print()
-                messages.append({"role": _assistant_role(client), "content": raw})
-                consolidated = parse_reflected(raw)
+                def _llm_reflect(prompt: str) -> str:
+                    messages.append({"role": "user", "content": prompt})
+                    messages[:] = trim_context(messages, max_tokens=client.num_ctx)
+                    raw = _stream_reply(client, messages)
+                    print()
+                    messages.append({"role": _assistant_role(client), "content": raw})
+                    return raw
+
+                consolidated = compress_entries(entries, _llm_reflect)
                 if consolidated:
                     apply_reflection(consolidated)
                     print(f"[REFLECT OK] {len(entries)} → {len(consolidated)} entries")
@@ -1521,7 +1536,7 @@ def run_chat(
                 continue
 
             try:
-                budget = route_result.tool_budget
+                budget = max(route_result.tool_budget, MAX_TOOL_BUDGET)
                 print(ui.j_stream_start(), end="", flush=True)
                 _run_turn(
                     client, messages, logger, rlog, user_message, registry, autonomy_mode,
@@ -1531,13 +1546,15 @@ def run_chat(
                 if should_reflect():
                     entries = working_memory.read_all()
                     print(f"\n{ui.stark_blue(persona.reflect_start(len(entries), working_memory.size_bytes()))}")
-                    rprompt = build_reflect_prompt(entries)
-                    messages.append({"role": "user", "content": rprompt})
-                    messages[:] = trim_context(messages, max_tokens=client.num_ctx)
-                    raw = _stream_reply(client, messages)
-                    print()
-                    messages.append({"role": _assistant_role(client), "content": raw})
-                    consolidated = parse_reflected(raw)
+                    def _llm_reflect(prompt: str) -> str:
+                        messages.append({"role": "user", "content": prompt})
+                        messages[:] = trim_context(messages, max_tokens=client.num_ctx)
+                        raw = _stream_reply(client, messages)
+                        print()
+                        messages.append({"role": _assistant_role(client), "content": raw})
+                        return raw
+
+                    consolidated = compress_entries(entries, _llm_reflect)
                     if consolidated:
                         apply_reflection(consolidated)
                         print(ui.stark_blue(persona.reflect_done(len(entries), len(consolidated))))

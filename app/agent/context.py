@@ -9,10 +9,15 @@ workflows across context boundaries.
 """
 
 from __future__ import annotations
+import json
+import time
+from pathlib import Path
 
 # Conservative default for small local models on USB hardware
 DEFAULT_MAX_TOKENS = 4096
 CHARS_PER_TOKEN = 4  # rough estimate
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+SCRATCH_PAD_PATH = BASE_DIR / "memory" / "scratch_pad.jsonl"
 
 
 def estimate_tokens(text: str) -> int:
@@ -60,6 +65,8 @@ def trim_context(
     tail = rest[-keep_last_n:]
     middle = rest[:-keep_last_n]
 
+    _extract_middle_tool_facts(middle)
+
     # Compress middle into a single summary message
     summary_parts = []
     for m in middle:
@@ -75,12 +82,51 @@ def trim_context(
     summary_msg = {"role": "system", "content": summary}
 
     result = system_msgs + [summary_msg] + tail
+    result.append(
+        {
+            "role": "system",
+            "content": "[SCRATCH PAD] Previously extracted data saved at memory/scratch_pad.jsonl. Use run_read to access if needed.",
+        }
+    )
 
     # If still too big, just keep system + tail
     if estimate_messages_tokens(result) > max_tokens:
         result = system_msgs + tail
 
     return result
+
+
+def _extract_middle_tool_facts(middle: list[dict[str, str]]) -> None:
+    """Persist key tool-output data before middle-message compression."""
+    if not middle:
+        return
+    SCRATCH_PAD_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with SCRATCH_PAD_PATH.open("a", encoding="utf-8") as handle:
+        for m in middle:
+            content = m.get("content", "")
+            if "[TOOL EXECUTION]" not in content:
+                continue
+            tool = ""
+            args: list[str] = []
+            result = ""
+            for line in content.splitlines():
+                if line.startswith("tool:"):
+                    tool = line.split(":", 1)[1].strip()
+                elif line.startswith("args:"):
+                    raw = line.split(":", 1)[1].strip()
+                    try:
+                        parsed = json.loads(raw.replace("'", '"'))
+                        if isinstance(parsed, list):
+                            args = [str(x) for x in parsed]
+                    except Exception:
+                        args = [raw]
+            if "result:\n" in content:
+                result = content.split("result:\n", 1)[1]
+            elif "result:" in content:
+                result = content.split("result:", 1)[1]
+            key_data = result[:4000]
+            entry = {"tool": tool, "args": args, "key_data": key_data, "ts": time.time()}
+            handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
 # ── Pre-flight budget gate ─────────────────────────────────────────

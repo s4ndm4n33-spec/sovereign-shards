@@ -2,7 +2,10 @@ import sys
 
 
 path = sys.argv[1]
-data = sys.stdin.read()
+if len(sys.argv) > 2:
+    data = sys.argv[2]
+else:
+    data = sys.stdin.read()
 
 with open(path, "w", encoding="utf-8") as handle:
     handle.write(data)
