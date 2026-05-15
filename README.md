@@ -405,8 +405,9 @@ J occupies a unique position in the local AI agent market. No existing product c
 | Tier | What | Price |
 |------|------|-------|
 | **Open Source Core** | This repo. Full framework, all tools, all tests. | Free |
-| **Pre-Loaded Shards** | USB drives with model, Python, server — plug and play. | $79–$149 |
-| **Enterprise** | Custom shards, dedicated support, compliance packaging. | $500–$5K+ |
+| **Standard Shard** | 16 GB USB — Qwen 7B, portable Python, plug and play. | $49.99 |
+| **Developer Shard** | 32 GB USB — Qwen 14B + Gemma 4, priority support. | $99.99 |
+| **Enterprise Shard** | 64 GB USB — custom config, bulk orders, compliance packaging. | $249.99+ |
 
 > 📋 **[Full business model →](docs/BUSINESS_MODEL.md)**
 

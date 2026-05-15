@@ -25,10 +25,10 @@
 **Why:** Community growth, contributions, trust. The repo is the top of the funnel.
 **Revenue:** $0 (but generates awareness, GitHub stars, and developer goodwill).
 
-### Tier 2: Pre-Loaded Shards (Hardware Product) — $79–$149
-**What:** A branded 16–32 GB USB stick, pre-loaded with:
+### Tier 2: Pre-Loaded Shards (Hardware Product) — $49.99–$99.99
+**What:** A branded USB stick, pre-loaded with:
 - The Sovereign Shards framework (latest stable)
-- A recommended GGUF model (Qwen2.5-Coder-14B Q4_K_M)
+- A recommended GGUF model (Qwen2.5-Coder Q4_K_M)
 - Portable Python runtime (WinPython/embeddable)
 - llama.cpp binaries for the target OS (Windows/Linux/macOS)
 - Plug-and-play `run.bat` / `run.sh` — zero setup
@@ -36,9 +36,8 @@
 **Pricing:**
 | Variant | Drive | Model | Price |
 |---------|-------|-------|-------|
-| **Shard Lite** | 16 GB USB 2.0 | Qwen 7B Q5 | $79 |
-| **Shard Pro** | 32 GB USB 3.0 | Qwen 14B Q4 + Gemma 4 E2B | $129 |
-| **Shard Max** | 64 GB USB 3.2 | Qwen 14B Q5 + Gemma 4 + spare capacity | $149 |
+| **Standard** | 16 GB USB 2.0 | Qwen 7B Q5 | $49.99 |
+| **Developer** | 32 GB USB 3.0 | Qwen 14B Q4 + Gemma 4 E2B | $99.99 |
 
 **Margins:**
 - USB cost: $5–$15 (bulk)
@@ -52,8 +51,9 @@
 - Amazon FBA — lower margin, massive reach
 - Partner retailers (dev tool shops, Micro Center, etc.)
 
-### Tier 3: Enterprise / Custom Shards — $500–$5,000+
+### Tier 3: Enterprise Shards — $249.99+
 **What:** Custom-configured shards for organisations:
+- 64 GB USB 3.2 — Qwen 14B Q5 + Gemma 4 + spare capacity
 - Pre-loaded with the client's codebase and internal docs in long-term memory
 - Custom tools pre-forged for their stack (e.g., Terraform tool, K8s tool)
 - Bulk orders (10–100+ units) for teams, workshops, or air-gapped deployments
@@ -127,15 +127,15 @@
 | **Total fixed** | **~$100/mo** |
 
 ### Variable (Per Unit)
-| Item | Lite | Pro | Max |
-|------|------|-----|-----|
+| Item | Standard | Developer | Enterprise |
+|------|----------|-----------|------------|
 | USB drive (bulk) | $4 | $8 | $12 |
 | Branding/packaging | $3 | $4 | $5 |
 | Shipping (domestic) | $4 | $4 | $4 |
-| Platform fee (~5%) | $4 | $6 | $7 |
-| **Total COGS** | **$15** | **$22** | **$28** |
-| **Gross profit** | **$64** | **$107** | **$121** |
-| **Gross margin** | **81%** | **83%** | **81%** |
+| Platform fee (~5%) | $2.50 | $5 | $12.50 |
+| **Total COGS** | **$13.50** | **$21** | **$33.50** |
+| **Gross profit** | **$36.49** | **$78.99** | **$216.49** |
+| **Gross margin** | **73%** | **79%** | **87%** |
 
 ---
 
@@ -187,9 +187,9 @@
 >
 > The agent (J) plans multi-step engineering tasks, writes code, runs tests, and self-corrects — powered by a local language model running entirely on the buyer's hardware.
 >
-> *Open-source framework (free) → Pre-loaded hardware ($79–$149) → Enterprise custom ($500–$5K+)*
+> *Open-source framework (free) → Standard Shard ($49.99) → Developer Shard ($99.99) → Enterprise ($249.99+)*
 >
-> Hardware margins: 80%+. Zero recurring infrastructure cost. The product gets smarter as open models improve — without us shipping updates.
+> Hardware margins: 73–87%. Zero recurring infrastructure cost. The product gets smarter as open models improve — without us shipping updates.
 
 ---
 
