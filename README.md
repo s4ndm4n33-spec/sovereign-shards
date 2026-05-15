@@ -1,4 +1,14 @@
 <p align="center">
+  <video src="https://github.com/s4ndm4n33-spec/sovereign-shards/raw/main/assets/j-demo.mp4" width="100%" autoplay muted loop playsinline>
+    Your browser does not support the video tag. <a href="assets/j-demo.mp4">Watch the demo →</a>
+  </video>
+</p>
+
+<p align="center">
+  <em>80 seconds. Everything J does. No cloud, no API keys, no internet.</em>
+</p>
+
+<p align="center">
   <img src="assets/icon.png" alt="Sovereign Shards" width="120" />
 </p>
 
