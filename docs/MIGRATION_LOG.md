@@ -3,8 +3,8 @@
 > For the next agent, developer, or collaborator picking up this project.
 > Read this entire document before writing a single line of code.
 
-**Last updated:** 2026-05-13 (Session 28)
-**Current agent:** Viktor (getviktor.com) — PRs #16–#32 (Session 18), direct pushes (Sessions 19–28). 195 total commits on main.
+**Last updated:** 2026-05-14 (Session 30)
+**Current agent:** Viktor (getviktor.com) — PRs #16–#43. 198 total commits on main.
 **Repo:** github.com/s4ndm4n33-spec/sovereign-shards
 **Branch:** `main` (active development branch).
 
@@ -368,7 +368,7 @@ J's identity is maintained through 4 layers:
 
 ### Still Open — Minor
 21. **`ProjectManifest.txt` (~178KB)** is from the initial build (2026-04-24). Contains stale content. Low priority but should be updated or removed.
-7. **`MIGRATION_LOG.json`** is maintained as a structured companion to this file (milestones M1–M8). Machine-readable migration record.
+7. **`MIGRATION_LOG.json`** is maintained as a structured companion to this file (milestones M1–M14). Machine-readable migration record.
 22. **Circuit breaker doesn't force-stop loops.** J sometimes ignores circuit breaker warnings and repeats identical tool calls. At 7B/2048 the model can't reliably process the recovery prompt. Tool budget mitigates this but doesn't fully replace circuit breaker enforcement.
 23. **J identity confusion at context saturation.** Qwen 7B occasionally appends "I apologize..." or "As per my programming..." disclaimers after answering. Stop tokens now catch the most common patterns but new variants may surface.
 
@@ -1831,3 +1831,143 @@ This preserves original-task reinjection while adding concrete next-step guidanc
 | `ProjectManifest.txt` | UPDATED | Session/date and continuity-hardening notes |
 | `docs/MIGRATION_LOG.md` | UPDATED | Session 28 record |
 | `docs/MIGRATION_LOG.json` | UPDATED | Added M10 structured milestone |
+
+## Session 29 — Context Persistence, Dedup Hardening, Reflection Batching
+
+*PRs: #41, #42 · Merged: 2026-05-14 · Codex-generated*
+
+### Problem
+
+Three classes of bugs surfaced during Sessions 26–28 live testing:
+
+1. **Context loss after compression** — Tool outputs evaporated during phase compression. J would read a file, compress, then not remember what was in it.
+2. **Duplicate tool calls** — J re-ran identical `run_read` calls because it forgot it had already done them.
+3. **Identity bleed in working memory** — Persona preambles ("I am J, built on the Qwen2.5-Coder-7B model…") were saved into working memory and polluted reflection prompts.
+
+### Fix
+
+**Persistent scratch pad** (`memory/scratch_pad.jsonl`):
+- New `_extract_middle_tool_facts` in `app/agent/context.py` extracts key facts from `[TOOL EXECUTION]` blocks and persists to disk.
+- When context is trimmed, a system message reminds J that the scratch pad exists.
+- J can recall tool outputs after compression without re-running them.
+
+**Accumulator** (`memory/task_accumulator.md`):
+- `_maybe_append_accumulator` in `app/agent/executor.py` writes intermediate results from large reads.
+- `build_step_prompt` now encourages writing intermediate results to disk.
+
+**Reflection batching** (`app/agent/reflection.py`):
+- `compress_entries` processes memory in bounded batches.
+- `rule_based_compress` provides a deterministic fallback when LLM reflection fails to parse.
+- `build_reflect_prompt` truncates inputs to `MAX_ENTRIES_JSON_CHARS`.
+
+**Dedup cache** (`app/chat.py`):
+- `DEDUP_CACHE` dict keyed on `(tool_name, tuple(args))`.
+- Returns cached output for exact repeated calls gated on `effect == "read"`.
+- Write/exec/network tools always execute regardless of cache.
+
+**Identity stripping**:
+- `_strip_identity_preamble` in `chat.py` removes persona preambles before `_extract_action` parsing.
+- `strip_identity_bleed` in `working_memory.py` prevents bleed on append.
+- `"I am J"` added to stop tokens.
+
+### Files Changed
+
+| File | Action | Notes |
+|------|--------|-------|
+| `app/chat.py` | UPDATED | Dedup cache, identity stripping, stop token addition |
+| `app/agent/context.py` | NEW | Scratch pad extraction (`_extract_middle_tool_facts`) |
+| `app/agent/executor.py` | UPDATED | Accumulator writes for large reads |
+| `app/agent/reflection.py` | UPDATED | Batched compression, deterministic fallback, truncation |
+| `app/agent/working_memory.py` | UPDATED | Identity bleed stripping on append |
+| `app/agent/circuit_breaker.py` | UPDATED | Scale formula adjustment |
+| `tools/run/write.py` | UPDATED | Accept data via argv[2] or stdin |
+
+---
+
+## Session 30 — Chain Checkpoint/Resume for Multi-Tool Execution
+
+*PR: #43 · Merged: 2026-05-14 · Codex-generated*
+
+### Problem
+
+J's 3-call tool budget (hard cap, not negotiable at 4096 context) meant multi-file operations were impossible in a single turn. Previous workarounds — raising the budget, phase compression — either blew the context window or caused derailment after compression.
+
+The root insight: *J doesn't need more calls per turn. J needs a way to pause, save state, and resume.*
+
+### Design: The Chain Log
+
+When J exhausts its 3-call budget mid-task, the system writes a `.j_chain.json` checkpoint:
+
+```json
+{
+  "task": "Write unit tests for router.py",
+  "status": "in_progress",
+  "turn": 2,
+  "completed": [
+    {"step": 1, "tool": "run_read", "args": ["app/router.py"], "summary": "446 lines, 12 functions"},
+    {"step": 2, "tool": "run_read", "args": ["tests/test_router.py"], "summary": "Existing: 12 test cases"},
+    {"step": 3, "tool": "run_write", "args": ["tests/test_router_math.py"], "summary": "Created 8 new tests"}
+  ],
+  "next_steps": "Write edge-case tests for _split_args, then run full suite",
+  "key_facts": [
+    "RouteResult has 5 fields: handled, tool_name, tool_args, output, tool_budget",
+    "_SHELL_PREFIXES has 30 entries including Windows commands"
+  ]
+}
+```
+
+J doesn't need the full file contents between turns — just the *facts* it extracted. When it needs specifics again, it does `run_search` or `run_read` with one of its 3 calls.
+
+### Implementation
+
+**Checkpoint (in `_run_turn`):**
+- Triggers when `remaining <= 0` and `turn_tool_calls >= 3`.
+- Builds `completed` steps from `turn_tool_log` with summaries from `turn_tool_digests`.
+- Extracts `key_facts` from tool outputs.
+- Calls model one final time with checkpoint prompt (tools disabled) to determine `status` and `next_steps`.
+- Merges with existing `.j_chain.json` preserving prior completed steps and incrementing turn counter.
+- Writes to disk and returns immediately — no forced final answer.
+
+**Resume (in `run_chat`):**
+- Applied at both initial-message and interactive call sites.
+- Detects `.j_chain.json` with `status == "in_progress"`.
+- Builds resume prompt:
+  ```
+  Continuing task (turn N). Original: {task}
+  Completed: {numbered list of completed steps}
+  Remaining: {next_steps}
+  Key facts: {key_facts}
+  You have 3 tool calls. Continue where you left off.
+  ```
+- Overrides user prompt with resume prompt, runs `_run_turn`, loops while chain is still `in_progress`.
+- On completion: prompts J with `"[TASK COMPLETE] Summarize what you accomplished."` then deletes chain file.
+
+**Safety:**
+- `MAX_CHAIN_TURNS = 10` (30 total tool calls), configurable via `J_MAX_CHAIN_TURNS`.
+- Chain terminates on: J declaring complete, empty `next_steps`, max turns reached, or no ACTION in response.
+- `.j_chain.json` added to `.gitignore`.
+
+### Why This Kills the Bugs
+
+| Bug | How chain log fixes it |
+|-----|----------------------|
+| Multi-action dump (Bug #3) | 3-call budget is short enough that J doesn't try to precompute 8 steps |
+| Post-compression derailment | No mid-turn compression needed. Clean slate each turn |
+| Hallucinated success narratives | J gets re-grounded from chain log each turn. Can't claim steps 4-6 when log only shows 1-3 |
+| Ghost edits (`run_str_replace`) | That was compression-induced confusion. 3-call turns with no compression = nothing to confuse |
+
+### Constants (updated)
+
+```
+MAX_TOOL_BUDGET    = 3   (default, reverted from Session 29's temporary raise to 6)
+CHAIN_LOG_PATH     = .j_chain.json
+MAX_CHAIN_TURNS    = 10  (configurable via J_MAX_CHAIN_TURNS, = 30 total tool calls)
+PHASE_SIZE         = 4   (preserved but won't trigger at budget=3)
+```
+
+### Files Changed
+
+| File | Action | Notes |
+|------|--------|-------|
+| `app/chat.py` | UPDATED | +148 lines: checkpoint creation, resume loop, chain constants |
+| `.gitignore` | UPDATED | Added `.j_chain.json` |
