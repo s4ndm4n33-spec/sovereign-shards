@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Ruff check
+        run: ruff check . --output-format=github
+
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run tests
+        run: python -m pytest tests/ -v --tb=short
+
+  smoke:
+    name: Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Import core modules
+        run: |
+          python -c "from app.router import RouteResult; print('✓ Router')"
+          python -c "from app.agent.circuit_breaker import CircuitBreaker; print('✓ CircuitBreaker')"
+          python -c "from app.agent import working_memory; print('✓ Memory')"
+          python -c "from app.agent.planner import build_plan_prompt; print('✓ Planner')"
+          python -c "from app.agent.retriever import Retriever; print('✓ Retriever')"
+          python -c "from app.agent.sandbox import run_sandbox; print('✓ Sandbox')"
+          python -c "from app.agent.task_buffer import task_buffer; print('✓ TaskBuffer')"
+          python -c "from app.personality import ready, tool_narrate; print('✓ Personality')"
+          python -c "from app.errors import ShardRuntimeError, TransportError; print('✓ Errors')"
+
+      - name: Verify tool registry
+        run: |
+          python -c "
+          import json, pathlib
+          reg = json.loads(pathlib.Path('tools/run/registry.json').read_text())
+          count = len(reg) if isinstance(reg, dict) else len(reg)
+          print(f'✓ Tool registry: {count} tools registered')
+          assert count > 0, 'No tools in registry'
+          "
+
+      - name: Verify project structure
+        run: |
+          python -c "
+          from pathlib import Path
+          required = [
+              'run.py', 'requirements.txt', 'README.md',
+              'app/chat.py', 'app/router.py', 'app/personality.py',
+              'prompts/J-system.txt', 'tools/run/registry.json',
+          ]
+          missing = [f for f in required if not Path(f).exists()]
+          assert not missing, f'Missing files: {missing}'
+          print('✓ All required files present')
+          "

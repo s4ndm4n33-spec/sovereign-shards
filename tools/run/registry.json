@@ -21,11 +21,12 @@
     "side_effect": "write"
   },
   "run_exec": {
-    "description": "Execute provided Python code in a subprocess.",
+    "description": "Execute provided Python code in a sandboxed subprocess with builtin and import restrictions.",
     "args": [
       "code"
     ],
-    "side_effect": "exec"
+    "side_effect": "exec",
+    "timeout_seconds": 10
   },
   "run_scaffold": {
     "description": "Create a package directory with __init__.py.",
