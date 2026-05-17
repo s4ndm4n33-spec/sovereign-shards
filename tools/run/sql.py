@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """SQLite query execution tool. Local-first, zero-dep database access.
 
 Usage: python sql.py <db_path> <query>

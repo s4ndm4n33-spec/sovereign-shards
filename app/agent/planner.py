@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Planner: decompose a user objective into executable AgentSteps.
 
 The planner asks the LLM to break a task into small, concrete steps,

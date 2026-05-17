@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Structured runtime logging with simple rotation for USB-safe operation."""
 
 from __future__ import annotations

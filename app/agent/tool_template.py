@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Tool template: canonical structure for auto-generated tools.
 
 This module exists purely as documentation and for the forge to reference.

@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Pre-push validation sandbox.
 
 Copies the working tree to a temp directory, runs a validation gauntlet

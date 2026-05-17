@@ -18,6 +18,7 @@
   <img src="https://img.shields.io/badge/runs_on-USB_drive-blue?style=for-the-badge" alt="Runs on USB" />
   <img src="https://img.shields.io/badge/cloud-none-critical?style=for-the-badge" alt="No Cloud" />
   <img src="https://img.shields.io/badge/deps-2-yellow?style=for-the-badge" alt="2 Dependencies" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSL_1.1-purple?style=for-the-badge" alt="BSL 1.1" /></a>
   <img src="https://img.shields.io/badge/tests-212_passing-success?style=for-the-badge" alt="212 Tests" />
   <img src="https://img.shields.io/badge/security-defence_suite-blueviolet?style=for-the-badge" alt="Defence Suite" />
 </p>
@@ -476,6 +477,18 @@ python tests/e2e_runner.py
 <p align="center">
   <em>"Systems that persist."</em>
 </p>
+
+---
+
+## License
+
+Sovereign Shards is licensed under the [Business Source License 1.1](LICENSE).
+
+- **Non-commercial use**: Free — personal, educational, and research use welcome.
+- **Commercial use**: Contact vikvondoom2026@gmail.com for licensing.
+- **Change date**: May 17, 2030 — converts to Apache 2.0 after that.
+
+Every source file carries a copyright header. See [LICENSE](LICENSE) for full terms.
 
 ---
 

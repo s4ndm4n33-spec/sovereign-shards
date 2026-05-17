@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Five Masters Code Optimizer — the transformation pipeline.
 
 Accepts Python source code, analyses it against the Five Masters,

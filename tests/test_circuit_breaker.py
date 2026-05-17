@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Tests for circuit breaker (app.agent.circuit_breaker)."""
 
 import unittest

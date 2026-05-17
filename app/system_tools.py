@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Hardware and OS snapshot helpers."""
 
 from __future__ import annotations

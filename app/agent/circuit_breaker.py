@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Self-healing circuit breaker for stuck agent loops.
 
 Detects repetitive patterns that indicate the agent is stuck:

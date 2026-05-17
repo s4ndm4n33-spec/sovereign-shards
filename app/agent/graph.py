@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Task graph: topological execution of AgentSteps with dependencies.
 
 Steps declare depends_on (tuple of step IDs).  The graph walker yields

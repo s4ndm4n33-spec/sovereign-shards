@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Sandboxed shell command execution.
 
 Usage: echo '<command>' | python bash.py [timeout_seconds]

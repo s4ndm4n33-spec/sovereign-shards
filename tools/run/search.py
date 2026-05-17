@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Regex search across a directory tree. Local ripgrep alternative.
 
 Usage: python search.py <pattern> [path] [--ext .py]

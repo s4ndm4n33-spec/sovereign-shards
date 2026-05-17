@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Security gap remediation — BRIDGE layer.
 
 Reads audit findings from the SCAN layer and generates actionable output.

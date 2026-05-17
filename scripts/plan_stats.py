@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Plan verify/reject rate reporter.
 
 Parses runtime JSONL logs from /plan builds and reports:

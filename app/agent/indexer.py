@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Project indexer: build a lightweight file tree + symbol map.
 
 Scans the project directory and caches results to a JSON file.

@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Action parsing and tool output formatting.
 
 Extracts ACTION payloads from model responses and formats tool output

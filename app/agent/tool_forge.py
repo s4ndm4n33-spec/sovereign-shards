@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Tool forge: generate, validate, and register new tools at runtime.
 
 Takes a ToolSpec from the researcher, asks the model to fill in the

@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Tests for the Five Masters Code Optimizer.
 
 Coverage: transforms (each deterministic fix), pipeline stages,

@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Helpers for running a local llama.cpp server from the shard itself.
 
 Supports Vulkan GPU offload, CPU-only fallback, and memory-conscious defaults.

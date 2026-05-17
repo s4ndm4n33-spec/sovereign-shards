@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Deterministic AST transformations for the Five Masters Code Optimizer.
 
 Each transform takes an AST and an Issue, returns a modified AST.

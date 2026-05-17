@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Test configuration: mock unavailable optional deps before any app imports.
 
 On the target USB hardware psutil is installed. In CI or clean environments

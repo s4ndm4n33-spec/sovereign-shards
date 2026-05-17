@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
 """Parallel step execution within task graph tiers.
 
 Steps within the same tier are independent (no mutual dependencies).
