@@ -13,11 +13,12 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/s4ndm4n33-spec/sovereign-shards/actions/workflows/ci.yml"><img src="https://github.com/s4ndm4n33-spec/sovereign-shards/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <img src="https://img.shields.io/badge/phase_1-CLEARED-brightgreen?style=for-the-badge" alt="Phase 1: Cleared" />
   <img src="https://img.shields.io/badge/runs_on-USB_drive-blue?style=for-the-badge" alt="Runs on USB" />
   <img src="https://img.shields.io/badge/cloud-none-critical?style=for-the-badge" alt="No Cloud" />
   <img src="https://img.shields.io/badge/deps-2-yellow?style=for-the-badge" alt="2 Dependencies" />
-  <img src="https://img.shields.io/badge/tests-147%2B_passing-success?style=for-the-badge" alt="147+ Tests" />
+  <img src="https://img.shields.io/badge/tests-212_passing-success?style=for-the-badge" alt="212 Tests" />
   <img src="https://img.shields.io/badge/security-defence_suite-blueviolet?style=for-the-badge" alt="Defence Suite" />
 </p>
 
@@ -94,7 +95,7 @@ Think of it as **Codex or Claude Code, but it runs off a Kingston USB stick** in
 | ⚡ **Tool Narration** | Tool results displayed as J-voiced one-liners (`⚡ Scanning tools/run... ✓ 18 lines`) instead of raw JSON dumps |
 | 🧮 **Safe Calculator** | AST-based math evaluator — natural language ("47 times 13") + functions (sqrt, log, trig). No eval(), no exec() |
 | 📡 **Streaming Output** | Real-time line-by-line tool output — see builds, tests, and processes as they happen |
-| 🧪 **147+ Test Suite** | Full `unittest` coverage: memory, retriever, planner, executor, sandbox, forge, circuit breaker, optimizer |
+| 🧪 **212 Test Suite** | Full `unittest` + `pytest` coverage: memory, retriever, planner, executor, sandbox, forge, circuit breaker, optimizer, task buffer |
 | 🎨 **Iron Man Terminal UI** | Stark Blue, Gold, Red colour scheme with arc reactor ASCII banner — zero dependencies, pure ANSI |
 | 🔒 **Fully Offline** | Zero network calls. Zero telemetry. Your code never leaves your machine |
 
@@ -270,7 +271,7 @@ sovereign-shards/                     127 files · ~6,500 lines Python
 │   ├── shield.py                     # Shard self-defence (194 lines)
 │   ├── scan.py                       # Host security auditor (~499 lines)
 │   └── bridge.py                     # Remediation generator (252 lines)
-├── tests/                            # 147+ tests (unittest, zero deps)
+├── tests/                            # 212 tests (unittest + pytest)
 │   ├── e2e_runner.py                 # Automated 20-test E2E runner (572 lines)
 │   └── test_*.py                     # Unit tests for every subsystem
 ├── models/                           # GGUF model files (gitignored)
@@ -312,7 +313,7 @@ sovereign-shards/                     127 files · ~6,500 lines Python
 
 ```
 146 files  ·  ~13,900 lines Python  ·  2 dependencies  ·  17 tools
-147+ tests  ·  8 AST transforms  ·  5 code quality masters  ·  3-layer defence suite
+212 tests  ·  8 AST transforms  ·  5 code quality masters  ·  3-layer defence suite
 23 development sessions  ·  ~1,450-line engineering diary
 Zero network calls  ·  Zero telemetry  ·  100% local  ·  USB-portable
 ```
@@ -446,7 +447,7 @@ Two packages. Everything else is Python standard library. That's a hard constrai
 ## 🧪 Testing
 
 ```bash
-# Unit tests (147+, zero external deps)
+# Unit tests (212, pytest)
 python -m pytest tests/
 
 # E2E test suite (20 tests, requires running server)

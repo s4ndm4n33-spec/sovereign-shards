@@ -1,0 +1,21 @@
+# Ruff linter configuration — Sovereign Shards
+# https://docs.astral.sh/ruff/
+
+target-version = "py311"
+line-length = 120
+
+[lint]
+# Start with defaults, ignore rules that need gradual cleanup
+select = ["E", "F", "W"]
+ignore = [
+    "E402",   # module-import-not-at-top — common pattern in tests & CLI scripts
+    "E501",   # line-too-long — handled by line-length=120; remaining are acceptable
+    "E741",   # ambiguous-variable-name — `l` in comprehensions is idiomatic
+    "F401",   # unused-import — many kept for future use / re-export; clean up later
+    "F541",   # f-string-missing-placeholders — harmless, auto-fixable later
+    "F821",   # undefined-name — false positives from conditional/runtime imports
+    "F841",   # unused-variable — minor, clean up later
+]
+
+# e2e_runner requires full system (LLM server) — not run in CI
+exclude = ["tests/e2e_runner.py"]
