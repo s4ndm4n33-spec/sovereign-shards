@@ -339,6 +339,39 @@
       },
       "pr": 43,
       "session": 30
+    },
+    {
+      "id": "M15",
+      "title": "CI/CD pipeline, linter config, and documentation refresh",
+      "summary": "Added GitHub Actions CI pipeline (lint, test matrix, smoke test), ruff linter configuration, plan_stats.py build analytics script, video demo asset, repo analysis report, next stage plan, and aligned pricing docs. Test count verified at 212 (up from 147).",
+      "files": [
+        ".github/workflows/ci.yml",
+        "ruff.toml",
+        "README.md",
+        "scripts/plan_stats.py",
+        "docs/REPO_ANALYSIS_REPORT.md",
+        "docs/NEXT_STAGE_PLAN.md",
+        "docs/VIDEO_DEMO_SPEC.md",
+        "docs/BUSINESS_MODEL.md",
+        "assets/j-demo.mp4"
+      ],
+      "actions": [
+        "Add GitHub Actions CI workflow with 3 jobs: lint (ruff), test (pytest across Python 3.10/3.11/3.12 matrix), smoke (9 core module imports + tool registry + project structure)",
+        "Add ruff.toml linter config: target py311, line-length 120, E/F/W rules with pragmatic ignores for current codebase",
+        "Add scripts/plan_stats.py \u2014 verify/reject rate reporter for /plan builds (265 lines)",
+        "Add repo analysis report (92/100 score) to docs/REPO_ANALYSIS_REPORT.md",
+        "Add next stage plan to docs/NEXT_STAGE_PLAN.md",
+        "Add video demo spec and 20MB demo video (80s aesthetic, 1080p)",
+        "Align all pricing tiers to $49.99 / $99.99 / $249.99 in README and BUSINESS_MODEL.md",
+        "Update README test count from 147 to 212, add live CI badge"
+      ],
+      "compatibility_notes": [
+        "CI pipeline requires GitHub Actions enabled on the repo.",
+        "ruff config ignores rules that need gradual cleanup (F401 unused imports, etc.).",
+        "tests/e2e_runner.py excluded from ruff (requires Python 3.12+ syntax).",
+        "All 212 tests pass on Python 3.10, 3.11, and 3.12."
+      ],
+      "session": 31
     }
   ],
   "migration_order": [
@@ -355,7 +388,8 @@
     "M11",
     "M12",
     "M13",
-    "M14"
+    "M14",
+    "M15"
   ],
   "validation": {
     "commands": [
@@ -367,11 +401,11 @@
       "python -m compileall app/agent/tool_router.py"
     ],
     "expected": "No syntax errors.",
-    "total_commits": 198,
-    "total_files": 146,
-    "python_modules": 79,
-    "python_lines": 13900,
-    "test_count": "147+"
+    "total_commits": 221,
+    "total_files": 133,
+    "python_modules": 80,
+    "python_lines": 14512,
+    "test_count": "212"
   },
   "handoff_checklist": [
     "Ensure tools/run scripts exist and are executable by Python.",

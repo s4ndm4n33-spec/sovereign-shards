@@ -1971,3 +1971,68 @@ PHASE_SIZE         = 4   (preserved but won't trigger at budget=3)
 |------|--------|-------|
 | `app/chat.py` | UPDATED | +148 lines: checkpoint creation, resume loop, chain constants |
 | `.gitignore` | UPDATED | Added `.j_chain.json` |
+
+---
+
+## Session 31 — CI/CD Pipeline, Linter, and Documentation Refresh
+
+**Date:** 2026-05-16
+**Agent:** Viktor (getviktor.com) — commits e10e38a+. 221 total commits on main.
+**Milestone:** M15
+
+### What Shipped
+
+1. **GitHub Actions CI Pipeline** (`.github/workflows/ci.yml`)
+   - **lint** job: `ruff check` on Python 3.11
+   - **test** job: `pytest` across Python 3.10 / 3.11 / 3.12 matrix (`fail-fast: false`)
+   - **smoke** job: 9 core module imports + tool registry validation + project structure check
+   - Triggers on every push and PR to `main`
+
+2. **Ruff Linter Config** (`ruff.toml`)
+   - `target-version = "py311"`, `line-length = 120`
+   - Selects E/F/W rule families
+   - Pragmatic ignores: E402, E501, E741, F401, F541, F821, F841
+   - Excludes `tests/e2e_runner.py` (Python 3.12+ backslash-in-f-string syntax)
+
+3. **Plan Stats Script** (`scripts/plan_stats.py`) — 265-line verify/reject rate reporter for `/plan` builds
+
+4. **Documentation Additions**
+   - `docs/REPO_ANALYSIS_REPORT.md` — full codebase analysis (92/100 score)
+   - `docs/NEXT_STAGE_PLAN.md` — roadmap for next development phase
+   - `docs/VIDEO_DEMO_SPEC.md` — 80s-aesthetic demo video specification
+   - `assets/j-demo.mp4` — 20MB 1080p demo video
+   - Pricing aligned to $49.99 / $99.99 / $249.99 across all docs
+
+5. **README Updates**
+   - Test count: 147 → 212
+   - Live CI status badge (links to Actions workflow)
+
+### Test Suite
+
+- **212 tests** across 16 test files (unittest + pytest)
+- All pass on Python 3.10, 3.11, and 3.12
+- `tests/e2e_runner.py` excluded from CI (requires live LLM server)
+
+### Validation Stats
+
+```
+Total commits:   221
+Total files:     133
+Python modules:   80
+Python lines:  14,512
+Tests:           212 (all passing)
+```
+
+### Files Changed
+
+| File | Action | Notes |
+|------|--------|-------|
+| `.github/workflows/ci.yml` | ADDED | 3-job CI pipeline |
+| `ruff.toml` | ADDED | Linter config for clean pass |
+| `README.md` | UPDATED | Test count, CI badge |
+| `scripts/plan_stats.py` | ADDED | Build analytics tool |
+| `docs/REPO_ANALYSIS_REPORT.md` | ADDED | Codebase health report |
+| `docs/NEXT_STAGE_PLAN.md` | ADDED | Development roadmap |
+| `docs/VIDEO_DEMO_SPEC.md` | ADDED | Demo video spec |
+| `docs/BUSINESS_MODEL.md` | UPDATED | Pricing alignment |
+| `assets/j-demo.mp4` | ADDED | 20MB demo video |
