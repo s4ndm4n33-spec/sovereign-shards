@@ -1,59 +1,72 @@
-# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
-"""Start the Sovereign Shard chat loop."""
+"""Sovereign Shard Deployment Entry Point
 
-from __future__ import annotations
-
+Single command to launch the full agent with diagnostics.
+"""
+import sys
 import argparse
-from pathlib import Path
-
-from app.chat import run_chat
-from app.client import create_client
 from app.doctor import run_doctor
+from app.local_server import LocalLlamaServer
+from app.client import create_client
 
 
-BASE_DIR = Path(__file__).resolve().parent
-
-
-def main() -> None:
-    """Run the shard in interactive, one-shot, or diagnostic mode."""
-    parser = argparse.ArgumentParser(description="Run the Sovereign Shard.")
-    parser.add_argument("--message", help="Send a single prompt and exit.")
-    parser.add_argument(
-        "--paths", action="store_true",
-        help="Print the shard-local runtime paths and exit.",
+def main():
+    parser = argparse.ArgumentParser(
+        description="B.L.U.E.-J. Sovereign Shard Runtime",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+EXAMPLES:
+  python run.py                # Launch interactive chat
+  python run.py --doctor       # Run diagnostics
+  python run.py --no-llm       # Launch without LLM (tool-only mode)
+  python run.py --verbose      # Enable debug output
+        """,
     )
     parser.add_argument(
-        "--doctor", action="store_true",
-        help="Run startup preflight diagnostics and exit.",
+        "--doctor",
+        action="store_true",
+        help="Run preflight diagnostics and exit",
     )
     parser.add_argument(
-        "--manual", action="store_true",
-        help="Print the user manual path and exit.",
+        "--no-llm",
+        action="store_true",
+        help="Disable LLM (tool-only mode)",
     )
     parser.add_argument(
-        "--mode", choices=["manual", "semi", "auto-safe", "auto-full"],
-        default="semi",
-        help="Autonomy level (default: semi).",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose output",
     )
-    args = parser.parse_args()
 
-    if args.paths:
-        config = create_client()
-        print(f"Shard:   {BASE_DIR}")
-        print(f"Server:  {config.server_binary}")
-        print(f"CLI:     {config.cli_binary}")
-        print(f"Model:   {config.model_path}")
-        return
+    args, unknown = parser.parse_known_args()
 
     if args.doctor:
-        raise SystemExit(run_doctor())
+        sys.exit(run_doctor())
 
-    if args.manual:
-        manual = BASE_DIR / "docs" / "USER_MANUAL.md"
-        print(f"Manual: {manual}")
-        return
+    # Launch chat
+    try:
+        # Try to start LLM server if configured
+        try:
+            config = create_client()
+            if not args.no_llm:
+                server = LocalLlamaServer(config)
+                server.ensure_started()
+        except Exception as e:
+            if args.verbose:
+                print(f"[WARN] LLM startup: {e}")
 
-    run_chat(initial_message=args.message, autonomy_mode=args.mode)
+        # Start chat loop
+        from app.chat import run_chat
+        run_chat()
+
+    except ImportError as e:
+        print(f"[FATAL]: Import error: {e}")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\n[SYSTEM]: Manual shutdown initiated.")
+        sys.exit(0)
+    except Exception as e:
+        print(f"[FATAL]: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
