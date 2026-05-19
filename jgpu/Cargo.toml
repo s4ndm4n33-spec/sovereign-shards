@@ -1,0 +1,3 @@
+[workspace]
+members = ["tensor","kernels","runtime","memory","backend"]
+resolver = "2"
