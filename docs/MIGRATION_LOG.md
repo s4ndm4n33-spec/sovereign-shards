@@ -2144,3 +2144,32 @@ j-cloud/
 |------|--------|-------|
 | `README.md` | UPDATED | Added J Cloud section, nav link |
 | `docs/MIGRATION_LOG.md` | UPDATED | Session 32 entry |
+
+---
+
+## Session 33 — 2026-05-19 (JGPU follow-up hardening pass)
+
+### Scope
+- Addressed follow-up request to continue JGPU sprint discipline and preserve isolation boundaries.
+- Added this explicit migration append for traceability on every push.
+
+### Notes
+- No cross-contamination into legacy shard runtime paths; JGPU remains scoped to `jgpu/` and top-level program docs.
+- Prepared for next sprint slice with signed session log continuity.
+
+**Signed-off-by:** Codex Agent <codex@openai>
+
+---
+
+## Session 34 — 2026-05-19 (JGPU Phase 6 baseline primitives)
+
+### Scope
+- Implemented baseline LLM operation kernels inside isolated `jgpu/kernels`.
+- Updated program tracking docs (`README.md`, `PLANS.md`, `AGENTS.md`) with live checklist/status marks.
+
+### Delivered
+- Added functional CPU implementations for `rmsnorm`, `softmax_last_dim`, `apply_rope`, `attention`, and `KvCache` append/latest semantics.
+- Added unit tests for each new primitive to enforce correctness and finite outputs.
+- Marked completed work in JGPU checklist and phase status blocks.
+
+**Signed-off-by:** Codex Agent <codex@openai>

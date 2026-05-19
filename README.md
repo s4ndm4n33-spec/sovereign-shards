@@ -98,6 +98,30 @@ J Cloud is the cloud extension of the USB agent. The USB stick is home. The clou
 
 ---
 
+
+## 🧱 JGPU Program Track (New)
+
+This repository now also tracks **JGPU**: a distributed, software-defined tensor runtime targeting llama.cpp and Ollama backend execution.
+
+- Program contract: [`AGENTS.md`](AGENTS.md)
+- Full phased plan: [`PLANS.md`](PLANS.md)
+
+JGPU principles are strict: correctness first, profiling before optimization, and architecture changes must update `README.md`, `PLANS.md`, and `AGENTS.md` together.
+
+- Initial implementation now exists in `jgpu/` with functional crates for tensor math, kernels, runtime scheduling queue, graph execution (DAG topological executor), memory allocator primitives, and backend identity plumbing.
+
+JGPU sprint checklist (live):
+- [x] Tensor core + shape/indexing
+- [x] MatMul kernels (naive + parallel)
+- [x] Runtime command queue
+- [x] DAG graph executor
+- [x] Initial allocator lifecycle
+- [x] LLM primitives v1 (`rmsnorm`, `softmax`, `RoPE`, `attention`, `KV cache`)
+- [ ] llama.cpp backend bridge
+- [ ] Ollama runtime integration
+
+---
+
 ## ✨ Key Features
 
 | Feature | Description |

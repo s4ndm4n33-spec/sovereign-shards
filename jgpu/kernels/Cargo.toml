@@ -1,0 +1,15 @@
+[package]
+name = "kernels"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rayon = "1.10"
+tensor = { path = "../tensor" }
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "matmul_bench"
+harness = false
