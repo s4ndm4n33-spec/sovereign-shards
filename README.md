@@ -98,6 +98,18 @@ J Cloud is the cloud extension of the USB agent. The USB stick is home. The clou
 
 ---
 
+
+## 🧱 JGPU Program Track (New)
+
+This repository now also tracks **JGPU**: a distributed, software-defined tensor runtime targeting llama.cpp and Ollama backend execution.
+
+- Program contract: [`AGENTS.md`](AGENTS.md)
+- Full phased plan: [`PLANS.md`](PLANS.md)
+
+JGPU principles are strict: correctness first, profiling before optimization, and architecture changes must update `README.md`, `PLANS.md`, and `AGENTS.md` together.
+
+---
+
 ## ✨ Key Features
 
 | Feature | Description |
