@@ -179,5 +179,42 @@
       "expression"
     ],
     "side_effect": "read"
+  },
+  "run_keyword_inference_replace": {
+    "description": "Searches repo via keyword inference and replaces with alternative user designated keywords",
+    "args": [
+      {
+        "name": "keyword",
+        "type": "str",
+        "required": true
+      },
+      {
+        "name": "alternative_keyword",
+        "type": "str",
+        "required": true
+      },
+      {
+        "name": "repo_path",
+        "type": "str",
+        "required": true
+      }
+    ],
+    "side_effect": "exec"
+  },
+  "run_api_generator": {
+    "description": "Generate REST API endpoints from a schema",
+    "args": [
+      {
+        "name": "schema",
+        "type": "json",
+        "required": true
+      },
+      {
+        "name": "output_path",
+        "type": "str",
+        "required": true
+      }
+    ],
+    "side_effect": "exec"
   }
 }

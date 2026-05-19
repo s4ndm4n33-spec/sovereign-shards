@@ -40,7 +40,7 @@ class LLMClient:
         stop_tokens: Optional[tuple] = None,
     ) -> Generator[str, None, None]:
         """Stream tokens from the model.
-        
+
         Args:
             prompt: User message
             system: System prompt override
@@ -48,7 +48,7 @@ class LLMClient:
             temperature: Temperature override
             top_p: Top-p override
             stop_tokens: Stop token override
-        
+
         Yields:
             Token strings
         """
@@ -119,12 +119,12 @@ class LLMClient:
         max_tokens: Optional[int] = None,
     ) -> str:
         """Generate full text (non-streaming).
-        
+
         Args:
             prompt: User message
             system: System prompt override
             max_tokens: Max output tokens
-        
+
         Returns:
             Full generated text
         """

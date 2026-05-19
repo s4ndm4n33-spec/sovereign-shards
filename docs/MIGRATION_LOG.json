@@ -144,7 +144,7 @@
     {
       "id": "M8",
       "title": "Live hardware validation and defensive hardening",
-      "summary": "First live USB hardware session. Fixed 17 bugs across PRs #16\u2013#32. Graduated 5-level smoke test passed. Added router-driven tool budget, search arg-swap heuristic, Windows cp1252 fixes, context management for 2048 ceiling, and expanded stop tokens.",
+      "summary": "First live USB hardware session. Fixed 17 bugs across PRs #16–#32. Graduated 5-level smoke test passed. Added router-driven tool budget, search arg-swap heuristic, Windows cp1252 fixes, context management for 2048 ceiling, and expanded stop tokens.",
       "files": [
         "app/chat.py",
         "app/client.py",
@@ -167,7 +167,7 @@
         "Add context management: truncated reads, tool output compression, memory gating (PRs #23-25)",
         "Add Hamilton fault-tolerant arg-swap for run_search (PR #26)",
         "Add repeat penalty (1.3) and expanded stop tokens (PR #26)",
-        "Fix isfile heuristic for arg-swap \u2014 directories no longer fool it (PR #28)",
+        "Fix isfile heuristic for arg-swap — directories no longer fool it (PR #28)",
         "Add router-driven per-turn tool budget classification (PRs #29-30)",
         "Add budget-aware tool loop with break on exhaustion (PR #32)",
         "Add stop tokens for identity-confusion runaway patterns (PR #31)"
@@ -182,7 +182,7 @@
     {
       "id": "M9",
       "title": "Endurance testing and router maturation",
-      "summary": "Three rounds of 20-turn endurance testing drove router maturation. v1 (5/20 FAIL) \u2192 v2 (12/20 CONDITIONAL) \u2192 v3 (17.5/20 PASS). Phase 1 gate cleared. Router expanded: Windows shell commands, all registered tools (not just run_*), budget=0 answer acceptance, router breadcrumbs for J context recall, stdin-tools single-arg bypass, backslash\u2192forward slash normalisation. System prompt enhanced with project facts, identity anchor, anti-Chinese directive.",
+      "summary": "Three rounds of 20-turn endurance testing drove router maturation. v1 (5/20 FAIL) → v2 (12/20 CONDITIONAL) → v3 (17.5/20 PASS). Phase 1 gate cleared. Router expanded: Windows shell commands, all registered tools (not just run_*), budget=0 answer acceptance, router breadcrumbs for J context recall, stdin-tools single-arg bypass, backslash→forward slash normalisation. System prompt enhanced with project facts, identity anchor, anti-Chinese directive.",
       "files": [
         "app/router.py",
         "app/chat.py",
@@ -201,7 +201,7 @@
         "Fix run_bash/run_exec arg splitting: pass entire rest as single stdin arg",
         "Normalise backslashes to forward slashes in _split_args for Windows paths"
       ],
-      "status": "complete \u2014 Phase 1 gate CLEARED",
+      "status": "complete — Phase 1 gate CLEARED",
       "session": 19,
       "depends_on": [
         "M8"
@@ -280,7 +280,7 @@
         "Allow tools/run/write.py to accept data via argv[2] or stdin"
       ],
       "compatibility_notes": [
-        "Scratch pad and accumulator are additive \u2014 no existing behavior changed.",
+        "Scratch pad and accumulator are additive — no existing behavior changed.",
         "Dedup cache is gated on effect=='read'; write/exec tools always execute.",
         "Identity stripping is regex-based and harmless if no preamble is present."
       ],
@@ -293,7 +293,7 @@
     {
       "id": "M14",
       "title": "Chain checkpoint/resume for multi-tool execution",
-      "summary": "The core tool-call chaining method. When J exhausts its 3-call budget mid-task, _run_turn writes a .j_chain.json checkpoint with completed steps, key facts, and next steps. On the next turn, run_chat detects the in-progress chain, injects structured context, and resumes execution. J never sees or edits the chain file directly \u2014 Python owns the read/write cycle. Turns repeat until J declares complete or MAX_CHAIN_TURNS (10, configurable via J_MAX_CHAIN_TURNS) is reached. This replaces mid-turn phase compression for multi-step tasks: each 3-call turn stays well within the 4096 token ceiling, and the chain log IS the compressed state.",
+      "summary": "The core tool-call chaining method. When J exhausts its 3-call budget mid-task, _run_turn writes a .j_chain.json checkpoint with completed steps, key facts, and next steps. On the next turn, run_chat detects the in-progress chain, injects structured context, and resumes execution. J never sees or edits the chain file directly — Python owns the read/write cycle. Turns repeat until J declares complete or MAX_CHAIN_TURNS (10, configurable via J_MAX_CHAIN_TURNS) is reached. This replaces mid-turn phase compression for multi-step tasks: each 3-call turn stays well within the 4096 token ceiling, and the chain log IS the compressed state.",
       "files": [
         ".gitignore",
         "app/chat.py"
@@ -319,8 +319,8 @@
         "Single-tool or quick-answer turns (budget not exhausted) skip the chain system entirely.",
         "Chain log is written/read by Python, never by J's tools.",
         "Resume loop lives in run_chat (outer), NOT _run_turn (inner).",
-        "30 total tool calls ceiling (10 turns \u00d7 3 calls) is configurable via J_MAX_CHAIN_TURNS.",
-        ".j_chain.json is gitignored \u2014 runtime-only artifact."
+        "30 total tool calls ceiling (10 turns × 3 calls) is configurable via J_MAX_CHAIN_TURNS.",
+        ".j_chain.json is gitignored — runtime-only artifact."
       ],
       "chain_log_schema": {
         "task": "<original user message>",
@@ -358,7 +358,7 @@
       "actions": [
         "Add GitHub Actions CI workflow with 3 jobs: lint (ruff), test (pytest across Python 3.10/3.11/3.12 matrix), smoke (9 core module imports + tool registry + project structure)",
         "Add ruff.toml linter config: target py311, line-length 120, E/F/W rules with pragmatic ignores for current codebase",
-        "Add scripts/plan_stats.py \u2014 verify/reject rate reporter for /plan builds (265 lines)",
+        "Add scripts/plan_stats.py — verify/reject rate reporter for /plan builds (265 lines)",
         "Add repo analysis report (92/100 score) to docs/REPO_ANALYSIS_REPORT.md",
         "Add next stage plan to docs/NEXT_STAGE_PLAN.md",
         "Add video demo spec and 20MB demo video (80s aesthetic, 1080p)",
@@ -372,6 +372,54 @@
         "All 212 tests pass on Python 3.10, 3.11, and 3.12."
       ],
       "session": 31
+    },
+    {
+      "id": "M16",
+      "title": "J Cloud — cloud agent platform with Five Masters governance",
+      "summary": "Full cloud deployment of J as an autonomous development agent on Viktor Spaces. Convex backend, React+Tailwind frontend, B.L.U.E. J. aesthetic, 8-tool dev engine, agentic tool loop, multi-provider LLM rotation, text-based ACTION dispatch, Five Masters system prompt, plan-first workflow.",
+      "files": [
+        "convex/schema.ts",
+        "convex/conversations.ts",
+        "convex/messages.ts",
+        "convex/llm.ts",
+        "convex/tools.ts",
+        "convex/admin.ts",
+        "convex/github.ts",
+        "convex/chainLogs.ts",
+        "convex/users.ts",
+        "src/pages/ChatPage.tsx",
+        "src/pages/EditorPage.tsx",
+        "src/pages/AdminPage.tsx",
+        "src/pages/ChainLogsPage.tsx",
+        "src/pages/LandingPage.tsx",
+        "src/components/AppSidebar.tsx",
+        "src/components/AppLayout.tsx",
+        "README.md"
+      ],
+      "date": "2026-05-19",
+      "session": 32
+    },
+    {
+      "id": "M17",
+      "title": "Full arsenal — 20-tool engine, tool forge, voice, IDE overhaul, CI fixes",
+      "summary": "Expanded J Cloud from 8 to 20 tools mirroring every shard tool. Added tool_forge (self-extending tool generation via LLM + atomic GitHub commit). Added TTS/STT voice interface, drag-and-drop file upload, highlight.js syntax highlighting with 19 languages and B.L.U.E. J. theme, syntax verification with inline markers. Fixed all CI failures (Retriever class, lint whitespace, f-string compat). Multi-provider LLM engine (Gemini/Groq/Cerebras). 239 commits, 147 files, 212 tests passing.",
+      "files": [
+        "convex/tools.ts",
+        "convex/llm.ts",
+        "src/pages/ChatPage.tsx",
+        "src/pages/EditorPage.tsx",
+        "src/pages/AdminPage.tsx",
+        "src/components/AppLayout.tsx",
+        "src/index.css",
+        "app/agent/retriever.py",
+        "app/llm_client.py",
+        "app/feature.py",
+        "tests/e2e_runner.py",
+        "docs/MIGRATION_LOG.md",
+        "docs/MIGRATION_LOG.json"
+      ],
+      "date": "2026-05-19",
+      "session": 33
     }
   ],
   "migration_order": [

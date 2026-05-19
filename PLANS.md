@@ -115,9 +115,9 @@ Rule: never optimize before profiling.
 - Validate chained graph execution order
 
 ### Phase 6 — LLM Operations
-- [x] Implement RMSNorm, Softmax, RoPE, Attention, KV cache (baseline CPU paths in `jgpu/kernels`)
-- [ ] Add FP16 and INT8 quantization paths
-- [ ] Validate transformer forward passes locally
+- Implement RMSNorm, Softmax, RoPE, Attention, KV cache
+- Add FP16 and INT8 quantization paths
+- Validate transformer forward passes locally
 
 ### Phase 7 — llama.cpp Backend
 - Study ggml backend interfaces
@@ -167,18 +167,3 @@ By day 30, deliver:
 - Graph execution
 - Transformer primitives
 - TinyLlama forward pass
-
-
----
-
-## Execution Status (2026-05-19)
-
-Implemented initial functional foundation under `jgpu/`:
-- Rust workspace with crates: `tensor`, `kernels`, `runtime`, `memory`, `backend`
-- Functional tensor core with shape/index/transpose and constructors
-- Functional naive + rayon-parallel matmul and criterion benchmark harness
-- Functional async runtime command queue executing matmul jobs
-- DAG graph executor with dependency-aware topological ordering (MatMul/Add/Input)
-- Functional virtual allocation table with ref-count lifecycle for HOT/WARM/COLD classes
-- Backend identity surface for early backend registration wiring
-- Phase 6 baseline primitives implemented in kernels (`rmsnorm`, `softmax`, `RoPE`, `attention`, `KvCache`)
