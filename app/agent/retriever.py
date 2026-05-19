@@ -53,6 +53,25 @@ def bm25_score(
     return score
 
 
+class Retriever:
+    """BM25 retriever wrapper for memory/knowledge chunks.
+
+    Provides a stateful interface: load chunks once, query many times.
+    """
+
+    def __init__(self, chunks: list[dict] | None = None, top_k: int = 5):
+        self.chunks: list[dict] = chunks or []
+        self.top_k = top_k
+
+    def add(self, chunk: dict) -> None:
+        """Add a chunk to the retriever's corpus."""
+        self.chunks.append(chunk)
+
+    def query(self, query: str, top_k: int | None = None) -> list[dict]:
+        """Retrieve top-K chunks most relevant to the query."""
+        return retrieve(query, self.chunks, top_k or self.top_k)
+
+
 def retrieve(
     query: str,
     chunks: list[dict],

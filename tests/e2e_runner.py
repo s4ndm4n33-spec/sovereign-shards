@@ -191,7 +191,7 @@ TESTS = [
         "kind": "llm",
         "validate": lambda reply, cap: (
             bool(re.search(r"(\d+)\s*match", cap)) and int(re.search(r"(\d+)\s*match", cap).group(1)) > 5,
-            f"{re.search(r'(\\d+)\\s*match', cap).group(1)} matches" if re.search(r"(\d+)\s*match", cap) else "no match count found"
+            "{} matches".format(re.search(r"(\d+)\s*match", cap).group(1)) if re.search(r"(\d+)\s*match", cap) else "no match count found"
         ),
     },
     {

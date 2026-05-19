@@ -40,7 +40,3 @@ The authoritative execution roadmap is documented in `PLANS.md` (Phase 0 through
 - Prefer small, composable modules with explicit boundaries.
 - Keep interfaces stable and test-first for critical math and scheduling components.
 - Enforce reproducible benchmarks and profiler traces for kernel work.
-
-
-### Current implementation note
-- A functional Rust workspace now exists at `jgpu/` as the active execution surface for Phases 0-5 foundations, including a dependency-aware graph executor.

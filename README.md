@@ -108,8 +108,6 @@ This repository now also tracks **JGPU**: a distributed, software-defined tensor
 
 JGPU principles are strict: correctness first, profiling before optimization, and architecture changes must update `README.md`, `PLANS.md`, and `AGENTS.md` together.
 
-- Initial implementation now exists in `jgpu/` with functional crates for tensor math, kernels, runtime scheduling queue, graph execution (DAG topological executor), memory allocator primitives, and backend identity plumbing.
-
 ---
 
 ## ✨ Key Features
