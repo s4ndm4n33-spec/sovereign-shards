@@ -32,6 +32,22 @@ export const ensureJ = mutation({
         personality: J_CONFIG.defaultHeuristics.personality,
         totalInvocations: 0,
       });
+    } else {
+      // Migrate: add new fields if missing (old schema → new schema)
+      const updates: Record<string, any> = {};
+      if (existing.tokenBudget === undefined) updates.tokenBudget = J_CONFIG.tokenBudget;
+      if (existing.geminiModel === undefined) updates.geminiModel = J_CONFIG.providers.gemini.defaultModel;
+      if (existing.groqModel === undefined) updates.groqModel = J_CONFIG.providers.groq.defaultModel;
+      if (existing.cerebrasModel === undefined) updates.cerebrasModel = J_CONFIG.providers.cerebras.defaultModel;
+      if (existing.defaultModel === undefined) updates.defaultModel = J_CONFIG.providers.gemini.defaultModel;
+      // Clean up legacy single-provider fields
+      if ((existing as any).endpointUrl !== undefined) updates.endpointUrl = undefined;
+      if ((existing as any).apiKey !== undefined) updates.apiKey = undefined;
+      if ((existing as any).authHeader !== undefined) updates.authHeader = undefined;
+      if ((existing as any).model !== undefined) updates.model = undefined;
+      if (Object.keys(updates).length > 0) {
+        await ctx.db.patch(existing._id, updates);
+      }
     }
     return null;
   },

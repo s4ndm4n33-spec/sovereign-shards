@@ -38,6 +38,62 @@ export const get = query({
   },
 });
 
+// Admin-only: create a new room
+export const createRoom = mutation({
+  args: {
+    name: v.string(),
+    description: v.string(),
+    icon: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Get max sortOrder
+    const allRooms = await ctx.db.query("rooms").withIndex("by_sortOrder").collect();
+    const maxSort = allRooms.length > 0 ? Math.max(...allRooms.map((r) => r.sortOrder)) : -1;
+
+    const id = await ctx.db.insert("rooms", {
+      name: args.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""),
+      description: args.description,
+      icon: args.icon || "◆",
+      sortOrder: maxSort + 1,
+      isDefault: false,
+    });
+    return { roomId: id };
+  },
+});
+
+// Admin-only: update a room
+export const updateRoom = mutation({
+  args: {
+    roomId: v.id("rooms"),
+    name: v.optional(v.string()),
+    description: v.optional(v.string()),
+    icon: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const room = await ctx.db.get(args.roomId);
+    if (!room) return { success: false };
+
+    const updates: Record<string, any> = {};
+    if (args.name !== undefined) updates.name = args.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    if (args.description !== undefined) updates.description = args.description;
+    if (args.icon !== undefined) updates.icon = args.icon;
+
+    await ctx.db.patch(args.roomId, updates);
+    return { success: true };
+  },
+});
+
+// Admin-only: delete a room (non-default only)
+export const deleteRoom = mutation({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, args) => {
+    const room = await ctx.db.get(args.roomId);
+    if (!room || room.isDefault) return { success: false };
+    await ctx.db.delete(args.roomId);
+    return { success: true };
+  },
+});
+
 export const seed = mutation({
   args: {},
   returns: v.null(),

@@ -27,6 +27,9 @@ import {
   Power,
   Sliders,
   Link,
+  Plus,
+  Hash,
+  Pencil,
 } from "lucide-react";
 
 /* ───────────── LOGIN ───────────── */
@@ -126,7 +129,7 @@ interface AdminAccount {
   role: string;
 }
 
-type Tab = "overview" | "appeals" | "moderation" | "users" | "admins" | "j";
+type Tab = "overview" | "appeals" | "moderation" | "users" | "admins" | "j" | "rooms";
 
 /* ───────────── CREATE ADMIN MODAL ───────────── */
 
@@ -255,12 +258,16 @@ function AdminDashboard({ token, account, onLogout }: { token: string; account: 
   const moderatedMessages = useQuery(api.messages.listModerated);
   const profiles = useQuery(api.profiles.listAll);
   const adminAccounts = useQuery(api.admin.listAccounts);
+  const allRooms = useQuery(api.rooms.list);
   const jConfig = useQuery(api.systemAI.getConfig);
   const resolveAppeal = useMutation(api.appeals.resolve);
   const restoreMessage = useMutation(api.messages.restoreMessage);
   const setBanned = useMutation(api.profiles.setBanned);
   const updateAdminAccount = useMutation(api.admin.updateAccount);
   const deleteAdminAccount = useMutation(api.admin.deleteAccount);
+  const createRoom = useMutation(api.rooms.createRoom);
+  const updateRoom = useMutation(api.rooms.updateRoom);
+  const deleteRoom = useMutation(api.rooms.deleteRoom);
   const ensureJ = useMutation(api.systemAI.ensureJ);
   const updateJProviders = useMutation(api.systemAI.updateProviders);
   const updateJHeuristics = useMutation(api.systemAI.updateHeuristics);
@@ -297,6 +304,7 @@ function AdminDashboard({ token, account, onLogout }: { token: string; account: 
     { id: "appeals" as const, label: `APPEALS${appeals?.length ? ` (${appeals.length})` : ""}`, icon: AlertTriangle },
     { id: "moderation" as const, label: "MODERATION", icon: MessageSquare },
     { id: "users" as const, label: "USERS", icon: Users },
+    ...(account.role === "super_admin" ? [{ id: "rooms" as const, label: `ROOMS (${allRooms?.length ?? 0})`, icon: Hash }] : []),
     { id: "admins" as const, label: "ADMINS", icon: Key },
   ];
 
@@ -363,7 +371,7 @@ function AdminDashboard({ token, account, onLogout }: { token: string; account: 
               { label: "Pending Appeals", value: stats.pendingAppeals, color: "text-shard-red", tab: "appeals" as Tab },
               { label: "Registered Users", value: stats.totalUsers, color: "text-shard-green", tab: "users" as Tab },
               { label: "Banned Users", value: stats.bannedUsers, color: "text-shard-red", tab: "users" as Tab },
-              { label: "Rooms", value: stats.totalRooms, color: "text-shard-violet", tab: null },
+              { label: "Rooms", value: stats.totalRooms, color: "text-shard-violet", tab: account.role === "super_admin" ? ("rooms" as Tab) : null },
               { label: "Admin Accounts", value: stats.totalAdmins, color: "text-shard-amber", tab: "admins" as Tab },
               { label: "J — System AI", value: jConfig?.isActive ? "ONLINE" : "OFFLINE", color: jConfig?.isActive ? "text-shard-cyan" : "text-shard-red", tab: "j" as Tab },
             ].map((stat) => (
@@ -654,6 +662,16 @@ function AdminDashboard({ token, account, onLogout }: { token: string; account: 
           </div>
         )}
 
+        {/* ─── Rooms (super_admin only) ─── */}
+        {activeTab === "rooms" && account.role === "super_admin" && (
+          <RoomsPanel
+            rooms={allRooms ?? []}
+            createRoom={createRoom}
+            updateRoom={updateRoom}
+            deleteRoom={deleteRoom}
+          />
+        )}
+
         {/* ─── J — System AI ─── */}
         {activeTab === "j" && (
           <JConfigPanel
@@ -664,6 +682,195 @@ function AdminDashboard({ token, account, onLogout }: { token: string; account: 
             setActive={setJActive}
           />
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ───────────── ROOMS PANEL ───────────── */
+
+function RoomsPanel({
+  rooms,
+  createRoom,
+  updateRoom,
+  deleteRoom,
+}: {
+  rooms: any[];
+  createRoom: any;
+  updateRoom: any;
+  deleteRoom: any;
+}) {
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newIcon, setNewIcon] = useState("◆");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editIcon, setEditIcon] = useState("");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-mono text-shard-white">ROOMS ({rooms.length})</h2>
+        <Button
+          onClick={() => setShowCreate(!showCreate)}
+          className="bg-shard-violet hover:bg-shard-violet/80 text-white font-mono text-xs"
+        >
+          <Plus className="w-3 h-3 mr-1" />
+          CREATE ROOM
+        </Button>
+      </div>
+
+      {/* Create form */}
+      {showCreate && (
+        <div className="bg-shard-surface border border-shard-violet/20 rounded-lg p-4 space-y-3">
+          <h3 className="text-xs font-mono text-shard-cyan">NEW ROOM</h3>
+          <div className="grid grid-cols-[60px_1fr] gap-3">
+            <div>
+              <label className="text-[10px] text-shard-gray font-mono mb-1 block">ICON</label>
+              <Input
+                value={newIcon}
+                onChange={(e) => setNewIcon(e.target.value)}
+                className="h-9 bg-shard-obsidian border-shard-violet/20 text-center text-lg"
+                maxLength={2}
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-shard-gray font-mono mb-1 block">NAME</label>
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="room-name"
+                className="h-9 bg-shard-obsidian border-shard-violet/20 text-sm font-mono"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] text-shard-gray font-mono mb-1 block">DESCRIPTION</label>
+            <Input
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+              placeholder="What's this room for?"
+              className="h-9 bg-shard-obsidian border-shard-violet/20 text-sm font-mono"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={async () => {
+                if (!newName.trim()) { toast.error("Room needs a name."); return; }
+                await createRoom({ name: newName.trim(), description: newDesc.trim() || "New room.", icon: newIcon || "◆" });
+                toast.success(`Room #${newName.trim().toLowerCase().replace(/\s+/g, "-")} created.`);
+                setNewName(""); setNewDesc(""); setNewIcon("◆"); setShowCreate(false);
+              }}
+              className="bg-shard-cyan hover:bg-shard-cyan/80 text-shard-obsidian font-mono text-xs"
+            >
+              CREATE
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setShowCreate(false)}
+              className="text-shard-gray font-mono text-xs"
+            >
+              CANCEL
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Room list */}
+      <div className="space-y-2">
+        {rooms.map((room) => (
+          <div key={room._id} className="bg-shard-surface border border-shard-violet/10 rounded-lg p-3">
+            {editingId === room._id ? (
+              /* Edit mode */
+              <div className="space-y-2">
+                <div className="grid grid-cols-[60px_1fr] gap-2">
+                  <Input
+                    value={editIcon}
+                    onChange={(e) => setEditIcon(e.target.value)}
+                    className="h-8 bg-shard-obsidian border-shard-violet/20 text-center text-lg"
+                    maxLength={2}
+                  />
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="h-8 bg-shard-obsidian border-shard-violet/20 text-sm font-mono"
+                  />
+                </div>
+                <Input
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  className="h-8 bg-shard-obsidian border-shard-violet/20 text-xs font-mono"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      await updateRoom({ roomId: room._id, name: editName, description: editDesc, icon: editIcon });
+                      toast.success("Room updated.");
+                      setEditingId(null);
+                    }}
+                    className="bg-shard-cyan hover:bg-shard-cyan/80 text-shard-obsidian font-mono text-[10px] h-7"
+                  >
+                    SAVE
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} className="text-shard-gray font-mono text-[10px] h-7">
+                    CANCEL
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              /* Display mode */
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">{room.icon}</span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-mono font-bold text-shard-white">#{room.name}</span>
+                      {room.isDefault && (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-shard-violet/10 text-shard-violet border border-shard-violet/20">DEFAULT</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-shard-gray font-mono">{room.description}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setEditingId(room._id);
+                      setEditName(room.name);
+                      setEditDesc(room.description);
+                      setEditIcon(room.icon);
+                    }}
+                    className="text-shard-cyan hover:text-shard-cyan/80 text-xs"
+                    title="Edit"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </Button>
+                  {!room.isDefault && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        if (!confirm(`Delete room #${room.name}? This cannot be undone.`)) return;
+                        const result = await deleteRoom({ roomId: room._id });
+                        if (result.success) toast.success("Room deleted.");
+                        else toast.error("Cannot delete this room.");
+                      }}
+                      className="text-shard-red hover:text-shard-red/80 text-xs"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

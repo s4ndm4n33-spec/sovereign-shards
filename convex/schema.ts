@@ -123,7 +123,7 @@ const schema = defineSchema({
     cerebrasApiKey: v.optional(v.string()),
     cerebrasModel: v.optional(v.string()),   // default: llama-3.1-8b
     defaultModel: v.optional(v.string()),    // display-level default
-    tokenBudget: v.number(),                 // max context window (hard cap 4096)
+    tokenBudget: v.optional(v.number()),       // max context window (hard cap 4096)
     systemPromptOverride: v.optional(v.string()),
     isActive: v.boolean(),
     // Heuristic calibration
