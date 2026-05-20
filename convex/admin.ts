@@ -1,10 +1,11 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD } from "./constants";
 
 declare const process: { env: Record<string, string | undefined> };
 
 // Admin auth - separate from regular user auth
-// Uses username/password stored in env vars
+// Uses username/password from env vars, falls back to constants
 export const login = mutation({
   args: {
     username: v.string(),
@@ -16,8 +17,8 @@ export const login = mutation({
     error: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
-    const adminUsername = process.env.ADMIN_USERNAME;
-    const adminPassword = process.env.ADMIN_PASSWORD;
+    const adminUsername = process.env.ADMIN_USERNAME || DEFAULT_ADMIN_USERNAME;
+    const adminPassword = process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD;
 
     if (!adminUsername || !adminPassword) {
       return { success: false, error: "Admin not configured." };

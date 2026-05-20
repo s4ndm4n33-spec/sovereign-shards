@@ -14,6 +14,8 @@ import {
   X,
   Ban,
   RotateCcw,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 function AdminLogin({ onLogin }: { onLogin: (token: string) => void }) {
@@ -22,6 +24,7 @@ function AdminLogin({ onLogin }: { onLogin: (token: string) => void }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,14 +67,24 @@ function AdminLogin({ onLogin }: { onLogin: (token: string) => void }) {
           </div>
           <div>
             <label className="text-xs text-shard-gray font-mono mb-1 block">PASSWORD</label>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="h-10 bg-shard-obsidian border-shard-violet/20 font-mono text-sm"
-              autoComplete="off"
-              required
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-10 bg-shard-obsidian border-shard-violet/20 font-mono text-sm pr-10"
+                autoComplete="off"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-shard-gray hover:text-shard-white transition-colors"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
           {error && (
             <div className="text-xs text-shard-red bg-shard-red/5 border border-shard-red/20 rounded p-2 font-mono">
