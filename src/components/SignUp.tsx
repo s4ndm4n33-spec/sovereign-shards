@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { PasswordInput } from "./PasswordInput";
 
 function isTestEmail(email: string): boolean {
   return email.endsWith("@test.local");
@@ -70,10 +71,9 @@ export function SignUp() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 placeholder="••••••••"
                 minLength={6}
                 autoComplete="new-password"

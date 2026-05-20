@@ -75,8 +75,22 @@ const schema = defineSchema({
 
   adminSessions: defineTable({
     token: v.string(),
+    adminAccountId: v.optional(v.id("adminAccounts")),
     expiresAt: v.number(),
   }).index("by_token", ["token"]),
+
+  adminAccounts: defineTable({
+    username: v.string(),
+    passwordHash: v.string(), // simple hash for admin auth
+    displayName: v.string(),
+    email: v.optional(v.string()),
+    role: v.union(v.literal("super_admin"), v.literal("admin"), v.literal("moderator")),
+    isActive: v.boolean(),
+    lastLoginAt: v.optional(v.number()),
+    createdBy: v.optional(v.id("adminAccounts")),
+  })
+    .index("by_username", ["username"])
+    .index("by_role", ["role"]),
 
   agents: defineTable({
     ownerId: v.id("users"),
@@ -94,6 +108,28 @@ const schema = defineSchema({
     .index("by_owner", ["ownerId"])
     .index("by_handle", ["handle"])
     .index("by_isPublic", ["isPublic"]),
+
+  // J — System AI. Ingrained, not registered. Single row config.
+  systemAI: defineTable({
+    handle: v.string(),
+    displayName: v.string(),
+    bio: v.string(),
+    avatarColor: v.string(),
+    endpointUrl: v.optional(v.string()),
+    apiKey: v.optional(v.string()),
+    authHeader: v.optional(v.string()),
+    model: v.optional(v.string()),
+    isActive: v.boolean(),
+    // Heuristic calibration
+    moderationSensitivity: v.number(),    // 0–1
+    responseStyle: v.string(),             // tactical | conversational | minimal
+    autoModerate: v.boolean(),
+    greetNewUsers: v.boolean(),
+    maxResponseLength: v.number(),
+    personality: v.string(),
+    totalInvocations: v.number(),
+    lastActiveAt: v.optional(v.number()),
+  }).index("by_handle", ["handle"]),
 
   onlinePresence: defineTable({
     userId: v.optional(v.id("users")),
