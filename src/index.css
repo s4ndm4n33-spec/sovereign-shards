@@ -1,0 +1,237 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Sovereign Shards brand colors as theme tokens */
+  --color-shard-violet: #6E4BFF;
+  --color-shard-cyan: #00D9FF;
+  --color-shard-amber: #FFB347;
+  --color-shard-red: #FF4D6D;
+  --color-shard-green: #4ADE80;
+  --color-shard-gray: #7D8597;
+  --color-shard-white: #E7ECF5;
+  --color-shard-obsidian: #090B10;
+  --color-shard-surface: #0D0F16;
+  --color-shard-elevated: #12151E;
+}
+
+/* Force dark — Sovereign Shards is always dark */
+:root {
+  --sidebar-width: 16rem;
+  --sidebar-width-icon: 3rem;
+  --radius: 0.5rem;
+
+  /* Primary = Sovereign Violet */
+  --primary: #6E4BFF;
+  --primary-foreground: #E7ECF5;
+  --sidebar-primary: #6E4BFF;
+  --sidebar-primary-foreground: #E7ECF5;
+
+  /* Semantic */
+  --success: #4ADE80;
+  --success-foreground: #090B10;
+  --warning: #FFB347;
+  --warning-foreground: #090B10;
+  --info: #00D9FF;
+  --info-foreground: #090B10;
+
+  /* Chart/accent */
+  --chart-1: #00D9FF;
+  --chart-2: #6E4BFF;
+  --chart-3: #4ADE80;
+  --chart-4: #FF4D6D;
+  --chart-5: #FFB347;
+
+  /* Core surfaces - Obsidian Black */
+  --background: #090B10;
+  --foreground: #E7ECF5;
+  --card: #0D0F16;
+  --card-foreground: #E7ECF5;
+  --popover: #12151E;
+  --popover-foreground: #E7ECF5;
+  --secondary: #12151E;
+  --secondary-foreground: #C0C7D6;
+  --muted: #12151E;
+  --muted-foreground: #7D8597;
+  --accent: #1A1D28;
+  --accent-foreground: #E7ECF5;
+  --destructive: #FF4D6D;
+  --destructive-foreground: #E7ECF5;
+  --border: rgba(110, 75, 255, 0.12);
+  --input: rgba(110, 75, 255, 0.15);
+  --ring: #6E4BFF;
+  --sidebar: #0A0C12;
+  --sidebar-foreground: #E7ECF5;
+  --sidebar-accent: #12151E;
+  --sidebar-accent-foreground: #E7ECF5;
+  --sidebar-border: rgba(110, 75, 255, 0.10);
+  --sidebar-ring: #6E4BFF;
+}
+
+/* No light mode — always dark */
+.dark {
+  /* Same as :root for Sovereign Shards */
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [type="button"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    @apply cursor-pointer;
+  }
+
+  /* Custom scrollbar for the cybernetic feel */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(110, 75, 255, 0.3);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(110, 75, 255, 0.5);
+  }
+
+  /* Selection color */
+  ::selection {
+    background: rgba(110, 75, 255, 0.3);
+    color: #E7ECF5;
+  }
+}
+
+@layer components {
+  .container {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .flex {
+    min-height: 0;
+    min-width: 0;
+  }
+
+  @media (min-width: 640px) {
+    .container {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container {
+      padding-left: 2rem;
+      padding-right: 2rem;
+      max-width: 1280px;
+    }
+  }
+
+  /* Sovereign Shards utility classes */
+  .shard-glow {
+    box-shadow: 0 0 20px rgba(110, 75, 255, 0.15), 0 0 60px rgba(110, 75, 255, 0.05);
+  }
+
+  .shard-glow-cyan {
+    box-shadow: 0 0 20px rgba(0, 217, 255, 0.15), 0 0 60px rgba(0, 217, 255, 0.05);
+  }
+
+  .shard-border {
+    border: 1px solid rgba(110, 75, 255, 0.15);
+  }
+
+  .shard-scanline {
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(110, 75, 255, 0.02) 2px,
+      rgba(110, 75, 255, 0.02) 4px
+    );
+    pointer-events: none;
+  }
+
+  /* Pulse animation for live indicators */
+  @keyframes shard-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .shard-pulse {
+    animation: shard-pulse 2s ease-in-out infinite;
+  }
+
+  /* Subtle grid background */
+  .shard-grid {
+    background-image:
+      linear-gradient(rgba(110, 75, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(110, 75, 255, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+}
