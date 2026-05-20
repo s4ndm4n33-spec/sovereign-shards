@@ -115,10 +115,16 @@ const schema = defineSchema({
     displayName: v.string(),
     bio: v.string(),
     avatarColor: v.string(),
-    endpointUrl: v.optional(v.string()),
-    apiKey: v.optional(v.string()),
-    authHeader: v.optional(v.string()),
-    model: v.optional(v.string()),
+    // Multi-provider rotation: Gemini (primary) → Groq (fallback) → Cerebras (fallback)
+    geminiApiKey: v.optional(v.string()),
+    geminiModel: v.optional(v.string()),     // default: gemini-2.0-flash
+    groqApiKey: v.optional(v.string()),
+    groqModel: v.optional(v.string()),       // default: llama-3.1-8b-instant
+    cerebrasApiKey: v.optional(v.string()),
+    cerebrasModel: v.optional(v.string()),   // default: llama-3.1-8b
+    defaultModel: v.optional(v.string()),    // display-level default
+    tokenBudget: v.number(),                 // max context window (hard cap 4096)
+    systemPromptOverride: v.optional(v.string()),
     isActive: v.boolean(),
     // Heuristic calibration
     moderationSensitivity: v.number(),    // 0–1

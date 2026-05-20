@@ -18,7 +18,12 @@ export const ensureJ = mutation({
         displayName: J_CONFIG.displayName,
         bio: J_CONFIG.bio,
         avatarColor: J_CONFIG.avatarColor,
-        isActive: false, // inactive until API keys are set
+        tokenBudget: J_CONFIG.tokenBudget,
+        geminiModel: J_CONFIG.providers.gemini.defaultModel,
+        groqModel: J_CONFIG.providers.groq.defaultModel,
+        cerebrasModel: J_CONFIG.providers.cerebras.defaultModel,
+        defaultModel: J_CONFIG.providers.gemini.defaultModel,
+        isActive: false, // inactive until at least one API key is set
         moderationSensitivity: J_CONFIG.defaultHeuristics.moderationSensitivity,
         responseStyle: J_CONFIG.defaultHeuristics.responseStyle,
         autoModerate: J_CONFIG.defaultHeuristics.autoModerate,
@@ -32,32 +37,9 @@ export const ensureJ = mutation({
   },
 });
 
-// Get J's config
+// Get J's config (hides actual key values, exposes booleans)
 export const getConfig = query({
   args: {},
-  returns: v.union(
-    v.object({
-      _id: v.id("systemAI"),
-      handle: v.string(),
-      displayName: v.string(),
-      bio: v.string(),
-      avatarColor: v.string(),
-      endpointUrl: v.optional(v.string()),
-      hasApiKey: v.boolean(),
-      authHeader: v.optional(v.string()),
-      model: v.optional(v.string()),
-      isActive: v.boolean(),
-      moderationSensitivity: v.number(),
-      responseStyle: v.string(),
-      autoModerate: v.boolean(),
-      greetNewUsers: v.boolean(),
-      maxResponseLength: v.number(),
-      personality: v.string(),
-      totalInvocations: v.number(),
-      lastActiveAt: v.optional(v.number()),
-    }),
-    v.null(),
-  ),
   handler: async (ctx) => {
     const j = await ctx.db
       .query("systemAI")
@@ -72,11 +54,18 @@ export const getConfig = query({
       displayName: j.displayName,
       bio: j.bio,
       avatarColor: j.avatarColor,
-      endpointUrl: j.endpointUrl,
-      hasApiKey: !!j.apiKey,
-      authHeader: j.authHeader,
-      model: j.model,
+      // Provider status (keys hidden)
+      hasGeminiKey: !!j.geminiApiKey,
+      geminiModel: j.geminiModel ?? J_CONFIG.providers.gemini.defaultModel,
+      hasGroqKey: !!j.groqApiKey,
+      groqModel: j.groqModel ?? J_CONFIG.providers.groq.defaultModel,
+      hasCerebrasKey: !!j.cerebrasApiKey,
+      cerebrasModel: j.cerebrasModel ?? J_CONFIG.providers.cerebras.defaultModel,
+      defaultModel: j.defaultModel ?? J_CONFIG.providers.gemini.defaultModel,
+      tokenBudget: j.tokenBudget,
+      systemPromptOverride: j.systemPromptOverride,
       isActive: j.isActive,
+      // Heuristics
       moderationSensitivity: j.moderationSensitivity,
       responseStyle: j.responseStyle,
       autoModerate: j.autoModerate,
@@ -89,15 +78,19 @@ export const getConfig = query({
   },
 });
 
-// Update J's API connection
-export const updateConnection = mutation({
+// Update provider keys and models
+export const updateProviders = mutation({
   args: {
-    endpointUrl: v.optional(v.string()),
-    apiKey: v.optional(v.string()),
-    authHeader: v.optional(v.string()),
-    model: v.optional(v.string()),
+    geminiApiKey: v.optional(v.string()),
+    geminiModel: v.optional(v.string()),
+    groqApiKey: v.optional(v.string()),
+    groqModel: v.optional(v.string()),
+    cerebrasApiKey: v.optional(v.string()),
+    cerebrasModel: v.optional(v.string()),
+    defaultModel: v.optional(v.string()),
+    tokenBudget: v.optional(v.number()),
+    systemPromptOverride: v.optional(v.string()),
   },
-  returns: v.object({ success: v.boolean() }),
   handler: async (ctx, args) => {
     const j = await ctx.db
       .query("systemAI")
@@ -107,15 +100,21 @@ export const updateConnection = mutation({
     if (!j) return { success: false };
 
     const updates: Record<string, any> = {};
-    if (args.endpointUrl !== undefined) updates.endpointUrl = args.endpointUrl;
-    if (args.apiKey !== undefined) updates.apiKey = args.apiKey;
-    if (args.authHeader !== undefined) updates.authHeader = args.authHeader;
-    if (args.model !== undefined) updates.model = args.model;
+    if (args.geminiApiKey !== undefined) updates.geminiApiKey = args.geminiApiKey;
+    if (args.geminiModel !== undefined) updates.geminiModel = args.geminiModel;
+    if (args.groqApiKey !== undefined) updates.groqApiKey = args.groqApiKey;
+    if (args.groqModel !== undefined) updates.groqModel = args.groqModel;
+    if (args.cerebrasApiKey !== undefined) updates.cerebrasApiKey = args.cerebrasApiKey;
+    if (args.cerebrasModel !== undefined) updates.cerebrasModel = args.cerebrasModel;
+    if (args.defaultModel !== undefined) updates.defaultModel = args.defaultModel;
+    if (args.tokenBudget !== undefined) updates.tokenBudget = Math.min(args.tokenBudget, 4096);
+    if (args.systemPromptOverride !== undefined) updates.systemPromptOverride = args.systemPromptOverride || undefined;
 
-    // Auto-activate if endpoint and key are provided
-    if (args.endpointUrl && args.apiKey) {
-      updates.isActive = true;
-    }
+    // Auto-activate if any key is set
+    const hasAnyKey = (args.geminiApiKey || j.geminiApiKey) ||
+                      (args.groqApiKey || j.groqApiKey) ||
+                      (args.cerebrasApiKey || j.cerebrasApiKey);
+    if (hasAnyKey) updates.isActive = true;
 
     await ctx.db.patch(j._id, updates);
     return { success: true };
@@ -132,7 +131,6 @@ export const updateHeuristics = mutation({
     maxResponseLength: v.optional(v.number()),
     personality: v.optional(v.string()),
   },
-  returns: v.object({ success: v.boolean() }),
   handler: async (ctx, args) => {
     const j = await ctx.db
       .query("systemAI")
@@ -161,7 +159,6 @@ export const updateProfile = mutation({
     bio: v.optional(v.string()),
     avatarColor: v.optional(v.string()),
   },
-  returns: v.object({ success: v.boolean() }),
   handler: async (ctx, args) => {
     const j = await ctx.db
       .query("systemAI")
@@ -183,7 +180,6 @@ export const updateProfile = mutation({
 // Toggle J active/inactive
 export const setActive = mutation({
   args: { isActive: v.boolean() },
-  returns: v.object({ success: v.boolean() }),
   handler: async (ctx, args) => {
     const j = await ctx.db
       .query("systemAI")
@@ -199,17 +195,6 @@ export const setActive = mutation({
 // Get J's public-facing info for chat display (no secrets)
 export const getPublicInfo = query({
   args: {},
-  returns: v.union(
-    v.object({
-      handle: v.string(),
-      displayName: v.string(),
-      bio: v.string(),
-      avatarColor: v.string(),
-      isActive: v.boolean(),
-      model: v.optional(v.string()),
-    }),
-    v.null(),
-  ),
   handler: async (ctx) => {
     const j = await ctx.db
       .query("systemAI")
@@ -224,7 +209,7 @@ export const getPublicInfo = query({
       bio: j.bio,
       avatarColor: j.avatarColor,
       isActive: j.isActive,
-      model: j.model,
+      defaultModel: j.defaultModel,
     };
   },
 });

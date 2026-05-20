@@ -262,7 +262,7 @@ function AdminDashboard({ token, account, onLogout }: { token: string; account: 
   const updateAdminAccount = useMutation(api.admin.updateAccount);
   const deleteAdminAccount = useMutation(api.admin.deleteAccount);
   const ensureJ = useMutation(api.systemAI.ensureJ);
-  const updateJConnection = useMutation(api.systemAI.updateConnection);
+  const updateJProviders = useMutation(api.systemAI.updateProviders);
   const updateJHeuristics = useMutation(api.systemAI.updateHeuristics);
   const updateJProfile = useMutation(api.systemAI.updateProfile);
   const setJActive = useMutation(api.systemAI.setActive);
@@ -365,6 +365,7 @@ function AdminDashboard({ token, account, onLogout }: { token: string; account: 
               { label: "Banned Users", value: stats.bannedUsers, color: "text-shard-red", tab: "users" as Tab },
               { label: "Rooms", value: stats.totalRooms, color: "text-shard-violet", tab: null },
               { label: "Admin Accounts", value: stats.totalAdmins, color: "text-shard-amber", tab: "admins" as Tab },
+              { label: "J — System AI", value: jConfig?.isActive ? "ONLINE" : "OFFLINE", color: jConfig?.isActive ? "text-shard-cyan" : "text-shard-red", tab: "j" as Tab },
             ].map((stat) => (
               <button
                 key={stat.label}
@@ -657,7 +658,7 @@ function AdminDashboard({ token, account, onLogout }: { token: string; account: 
         {activeTab === "j" && (
           <JConfigPanel
             jConfig={jConfig}
-            updateConnection={updateJConnection}
+            updateProviders={updateJProviders}
             updateHeuristics={updateJHeuristics}
             updateProfile={updateJProfile}
             setActive={setJActive}
@@ -672,22 +673,24 @@ function AdminDashboard({ token, account, onLogout }: { token: string; account: 
 
 function JConfigPanel({
   jConfig,
-  updateConnection,
+  updateProviders,
   updateHeuristics,
   updateProfile,
   setActive,
 }: {
   jConfig: any;
-  updateConnection: any;
+  updateProviders: any;
   updateHeuristics: any;
   updateProfile: any;
   setActive: any;
 }) {
-  // Connection state
-  const [endpointUrl, setEndpointUrl] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [authHeader, setAuthHeader] = useState("Authorization");
-  const [model, setModel] = useState("");
+  // Provider keys
+  const [geminiKey, setGeminiKey] = useState("");
+  const [groqKey, setGroqKey] = useState("");
+  const [cerebrasKey, setCerebrasKey] = useState("");
+  const [defaultModel, setDefaultModel] = useState("gemini-2.0-flash");
+  const [tokenBudget, setTokenBudget] = useState(4096);
+  const [systemPromptOverride, setSystemPromptOverride] = useState("");
 
   // Heuristic state
   const [sensitivity, setSensitivity] = useState(0.7);
@@ -706,9 +709,9 @@ function JConfigPanel({
   // Sync from server
   useEffect(() => {
     if (jConfig && !initialized) {
-      setEndpointUrl(jConfig.endpointUrl ?? "");
-      setAuthHeader(jConfig.authHeader ?? "Authorization");
-      setModel(jConfig.model ?? "");
+      setDefaultModel(jConfig.defaultModel ?? "gemini-2.0-flash");
+      setTokenBudget(jConfig.tokenBudget ?? 4096);
+      setSystemPromptOverride(jConfig.systemPromptOverride ?? "");
       setSensitivity(jConfig.moderationSensitivity);
       setResponseStyle(jConfig.responseStyle);
       setAutoModerate(jConfig.autoModerate);
@@ -764,14 +767,22 @@ function JConfigPanel({
       </div>
 
       {/* Stats bar */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <div className="bg-shard-surface border border-shard-violet/10 rounded-lg p-3 text-center">
           <div className="text-lg font-bold font-mono text-shard-cyan">{jConfig.totalInvocations}</div>
           <div className="text-[10px] text-shard-gray font-mono">INVOCATIONS</div>
         </div>
         <div className="bg-shard-surface border border-shard-violet/10 rounded-lg p-3 text-center">
-          <div className="text-lg font-bold font-mono text-shard-violet">{jConfig.model || "—"}</div>
-          <div className="text-[10px] text-shard-gray font-mono">MODEL</div>
+          <div className="text-sm font-bold font-mono text-shard-violet truncate">{jConfig.defaultModel || "—"}</div>
+          <div className="text-[10px] text-shard-gray font-mono">DEFAULT MODEL</div>
+        </div>
+        <div className="bg-shard-surface border border-shard-violet/10 rounded-lg p-3 text-center">
+          <div className="flex justify-center gap-1.5 mb-0.5">
+            <span className={`w-2 h-2 rounded-full ${jConfig.hasGeminiKey ? "bg-shard-green" : "bg-shard-gray/30"}`} title="Gemini" />
+            <span className={`w-2 h-2 rounded-full ${jConfig.hasGroqKey ? "bg-shard-green" : "bg-shard-gray/30"}`} title="Groq" />
+            <span className={`w-2 h-2 rounded-full ${jConfig.hasCerebrasKey ? "bg-shard-green" : "bg-shard-gray/30"}`} title="Cerebras" />
+          </div>
+          <div className="text-[10px] text-shard-gray font-mono">PROVIDERS</div>
         </div>
         <div className="bg-shard-surface border border-shard-violet/10 rounded-lg p-3 text-center">
           <div className={`text-lg font-bold font-mono ${jConfig.isActive ? "text-shard-green" : "text-shard-red"}`}>
@@ -781,67 +792,155 @@ function JConfigPanel({
         </div>
       </div>
 
-      {/* API Connection */}
+      {/* Configuration — Multi-Provider */}
       <div className="bg-shard-surface border border-shard-violet/10 rounded-lg p-5">
-        <h3 className="text-sm font-mono text-shard-cyan mb-4 flex items-center gap-2">
+        <h3 className="text-sm font-mono text-shard-cyan mb-1 flex items-center gap-2">
           <Link className="w-4 h-4" />
-          API CONNECTION
+          CONFIGURATION
         </h3>
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs text-shard-gray font-mono mb-1 block">ENDPOINT URL</label>
-            <Input
-              value={endpointUrl}
-              onChange={(e) => setEndpointUrl(e.target.value)}
-              placeholder="https://api.example.com/v1/chat/completions"
-              className="h-9 bg-shard-obsidian border-shard-violet/20 text-sm font-mono"
+        <p className="text-[10px] text-shard-gray/60 font-mono mb-4">Edit any setting below. Changes take effect immediately.</p>
+
+        <div className="space-y-4">
+          {/* Gemini — Primary */}
+          <div className="p-3 rounded-lg border border-shard-cyan/15 bg-shard-obsidian/50">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold text-shard-cyan">GEMINI API KEY</span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-shard-cyan/10 text-shard-cyan border border-shard-cyan/20">PRIMARY</span>
+              </div>
+              {jConfig.hasGeminiKey && <span className="text-[10px] font-mono text-shard-green">● SET</span>}
+            </div>
+            <PasswordInput
+              value={geminiKey}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGeminiKey(e.target.value)}
+              placeholder={jConfig.hasGeminiKey ? "••••••••  (key set)" : "AIza..."}
+              className="h-9 bg-shard-obsidian border-shard-violet/20 text-sm font-mono mb-1"
             />
+            <p className="text-[10px] text-shard-gray/40 font-mono">
+              Free key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-shard-cyan/60 hover:text-shard-cyan underline">aistudio.google.com/apikey</a> — 1,500 req/day. Primary provider.
+            </p>
           </div>
+
+          {/* Groq — Fallback */}
+          <div className="p-3 rounded-lg border border-shard-violet/15 bg-shard-obsidian/50">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold text-shard-violet">GROQ API KEY</span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-shard-violet/10 text-shard-violet border border-shard-violet/20">FALLBACK</span>
+              </div>
+              {jConfig.hasGroqKey && <span className="text-[10px] font-mono text-shard-green">● SET</span>}
+            </div>
+            <PasswordInput
+              value={groqKey}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGroqKey(e.target.value)}
+              placeholder={jConfig.hasGroqKey ? "••••••••  (key set)" : "gsk_..."}
+              className="h-9 bg-shard-obsidian border-shard-violet/20 text-sm font-mono mb-1"
+            />
+            <p className="text-[10px] text-shard-gray/40 font-mono">
+              Free key from <a href="https://console.groq.com" target="_blank" rel="noreferrer" className="text-shard-violet/60 hover:text-shard-violet underline">console.groq.com</a> — auto-fallback if Gemini is down.
+            </p>
+          </div>
+
+          {/* Cerebras — Fallback */}
+          <div className="p-3 rounded-lg border border-shard-amber/15 bg-shard-obsidian/50">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold text-shard-amber">CEREBRAS API KEY</span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-shard-amber/10 text-shard-amber border border-shard-amber/20">FALLBACK</span>
+              </div>
+              {jConfig.hasCerebrasKey && <span className="text-[10px] font-mono text-shard-green">● SET</span>}
+            </div>
+            <PasswordInput
+              value={cerebrasKey}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCerebrasKey(e.target.value)}
+              placeholder={jConfig.hasCerebrasKey ? "••••••••  (key set)" : "csk-..."}
+              className="h-9 bg-shard-obsidian border-shard-violet/20 text-sm font-mono mb-1"
+            />
+            <p className="text-[10px] text-shard-gray/40 font-mono">
+              Free key from <a href="https://cerebras.ai" target="_blank" rel="noreferrer" className="text-shard-amber/60 hover:text-shard-amber underline">cerebras.ai</a> — third fallback provider.
+            </p>
+          </div>
+
+          {/* Default Model + Token Budget */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-shard-gray font-mono mb-1 block">API KEY</label>
-              <PasswordInput
-                value={apiKey}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)}
-                placeholder={jConfig.hasApiKey ? "••••••••  (key set)" : "sk-..."}
+              <label className="text-xs text-shard-gray font-mono mb-1 block">DEFAULT MODEL</label>
+              <Input
+                value={defaultModel}
+                onChange={(e) => setDefaultModel(e.target.value)}
+                placeholder="gemini-2.0-flash"
                 className="h-9 bg-shard-obsidian border-shard-violet/20 text-sm font-mono"
               />
+              <p className="text-[10px] text-shard-gray/40 font-mono mt-0.5">
+                Primary: gemini-2.0-flash. Also: gemini-2.0-flash-lite, llama-3.1-8b-instant
+              </p>
             </div>
             <div>
-              <label className="text-xs text-shard-gray font-mono mb-1 block">AUTH HEADER</label>
+              <label className="text-xs text-shard-gray font-mono mb-1 block">TOKEN BUDGET</label>
               <Input
-                value={authHeader}
-                onChange={(e) => setAuthHeader(e.target.value)}
-                placeholder="Authorization"
+                type="number"
+                value={tokenBudget}
+                onChange={(e) => setTokenBudget(Math.min(parseInt(e.target.value) || 0, 4096))}
                 className="h-9 bg-shard-obsidian border-shard-violet/20 text-sm font-mono"
               />
+              <p className="text-[10px] text-shard-gray/40 font-mono mt-0.5">
+                Max context window (J's hard cap is 4096)
+              </p>
             </div>
           </div>
+
+          {/* System Prompt Override */}
           <div>
-            <label className="text-xs text-shard-gray font-mono mb-1 block">MODEL</label>
-            <Input
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder="phi-3, gpt-4, claude-3, etc."
-              className="h-9 bg-shard-obsidian border-shard-violet/20 text-sm font-mono"
+            <label className="text-xs text-shard-gray font-mono mb-1 block">SYSTEM PROMPT OVERRIDE</label>
+            <textarea
+              value={systemPromptOverride}
+              onChange={(e) => setSystemPromptOverride(e.target.value)}
+              rows={3}
+              className="w-full bg-shard-obsidian border border-shard-violet/20 rounded-md px-3 py-2 text-sm font-mono text-shard-white resize-none focus:outline-none focus:border-shard-violet/40"
+              placeholder="Custom system prompt — leave empty for default J personality"
             />
           </div>
+
+          {/* Quick Actions */}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer"
+              className="text-[10px] font-mono px-2 py-1 rounded border border-shard-cyan/20 text-shard-cyan hover:bg-shard-cyan/10 transition-colors">
+              Get Gemini API Key →
+            </a>
+            <a href="https://console.groq.com" target="_blank" rel="noreferrer"
+              className="text-[10px] font-mono px-2 py-1 rounded border border-shard-violet/20 text-shard-violet hover:bg-shard-violet/10 transition-colors">
+              Get Groq API Key →
+            </a>
+            <a href="https://cerebras.ai" target="_blank" rel="noreferrer"
+              className="text-[10px] font-mono px-2 py-1 rounded border border-shard-amber/20 text-shard-amber hover:bg-shard-amber/10 transition-colors">
+              Get Cerebras API Key →
+            </a>
+            <a href="https://github.com/s4ndm4n33-spec/sovereign-shards" target="_blank" rel="noreferrer"
+              className="text-[10px] font-mono px-2 py-1 rounded border border-shard-gray/20 text-shard-gray hover:bg-shard-gray/10 transition-colors">
+              GitHub Repo →
+            </a>
+          </div>
+
           <Button
             onClick={async () => {
               const updates: any = {
-                endpointUrl: endpointUrl || undefined,
-                authHeader: authHeader || undefined,
-                model: model || undefined,
+                defaultModel: defaultModel || undefined,
+                tokenBudget,
+                systemPromptOverride: systemPromptOverride || undefined,
               };
-              if (apiKey) updates.apiKey = apiKey;
-              await updateConnection(updates);
-              setApiKey("");
-              toast.success("Connection updated.");
+              if (geminiKey) updates.geminiApiKey = geminiKey;
+              if (groqKey) updates.groqApiKey = groqKey;
+              if (cerebrasKey) updates.cerebrasApiKey = cerebrasKey;
+              await updateProviders(updates);
+              setGeminiKey("");
+              setGroqKey("");
+              setCerebrasKey("");
+              toast.success("Configuration saved.");
             }}
             className="bg-shard-cyan hover:bg-shard-cyan/80 text-shard-obsidian font-mono text-xs"
           >
             <Save className="w-3 h-3 mr-1" />
-            SAVE CONNECTION
+            SAVE CONFIGURATION
           </Button>
         </div>
       </div>

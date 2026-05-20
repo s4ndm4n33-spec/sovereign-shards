@@ -13,6 +13,28 @@ export const J_CONFIG = {
   avatarColor: "#00D9FF", // Signal Cyan
   role: "moderator" as const,
   adminRole: "moderator" as const,
+  tokenBudget: 4096,
+  // Provider endpoints (hardcoded — keys come from admin panel)
+  providers: {
+    gemini: {
+      name: "Gemini",
+      endpoint: "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+      defaultModel: "gemini-2.0-flash",
+      description: "Free key from aistudio.google.com/apikey — 1,500 req/day. Primary provider.",
+    },
+    groq: {
+      name: "Groq",
+      endpoint: "https://api.groq.com/openai/v1/chat/completions",
+      defaultModel: "llama-3.1-8b-instant",
+      description: "Free key from console.groq.com — auto-fallback if Gemini is down.",
+    },
+    cerebras: {
+      name: "Cerebras",
+      endpoint: "https://api.cerebras.ai/v1/chat/completions",
+      defaultModel: "llama-3.1-8b",
+      description: "Free key from cerebras.ai — third fallback provider.",
+    },
+  },
   // Default heuristic calibration
   defaultHeuristics: {
     moderationSensitivity: 0.7,    // 0–1, how aggressive moderation is
