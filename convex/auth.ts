@@ -41,10 +41,10 @@ if (jwtPrivateKey) {
 // Spaces backend (true on dev, false on prod). On production it is "false" or
 // unset, so the test provider is omitted entirely and `signIn("test", ...)`
 // fails with "Provider not configured".
+// No email verification — instant signup. Reset still uses email.
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Password({
-      verify: ViktorSpacesEmail,
       reset: ViktorSpacesPasswordReset,
     }),
     ...(process.env.VIKTOR_SPACES_IS_PREVIEW === "true" ? [TestCredentials] : []),

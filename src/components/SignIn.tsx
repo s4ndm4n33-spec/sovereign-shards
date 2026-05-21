@@ -7,10 +7,6 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { PasswordInput } from "./PasswordInput";
 
-function isTestEmail(email: string): boolean {
-  return email.endsWith("@test.local");
-}
-
 type Step =
   | "signIn"
   | { type: "forgot"; email?: string }
@@ -34,10 +30,8 @@ export function SignIn() {
               setLoading(true);
 
               const formData = new FormData(e.currentTarget);
-              const email = formData.get("email") as string;
-              const provider = isTestEmail(email) ? "test" : "password";
               try {
-                await signIn(provider, formData);
+                await signIn("password", formData);
               } catch {
                 setError("Invalid email or password");
               } finally {
