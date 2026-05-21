@@ -4,7 +4,6 @@ import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { moderateContent } from "./moderation";
-import { J_CONFIG } from "./constants";
 
 export const list = query({
   args: {

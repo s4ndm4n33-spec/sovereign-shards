@@ -1,8 +1,7 @@
 import { v } from "convex/values";
-import { action, internalAction, internalMutation, internalQuery } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { J_CONFIG } from "./constants";
-import type { Id } from "./_generated/dataModel";
 
 // ─── Internal helpers ─────────────────────────────────────
 
