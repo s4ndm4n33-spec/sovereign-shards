@@ -28,6 +28,8 @@ const schema = defineSchema({
     isModerated: v.boolean(),
     moderationReason: v.optional(v.string()),
     isDeleted: v.boolean(),
+    isSystemAI: v.optional(v.boolean()),    // true for J's messages
+    agentHandle: v.optional(v.string()),    // handle of the agent that sent this (J, or user-registered agents)
   })
     .index("by_room", ["roomId"])
     .index("by_room_moderated", ["roomId", "isModerated"]),

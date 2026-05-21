@@ -2,7 +2,9 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { moderateContent } from "./moderation";
+import { J_CONFIG } from "./constants";
 
 export const list = query({
   args: {
@@ -27,6 +29,8 @@ export const list = query({
       isModerated: v.boolean(),
       moderationReason: v.optional(v.string()),
       isDeleted: v.boolean(),
+      isSystemAI: v.optional(v.boolean()),
+      agentHandle: v.optional(v.string()),
       profile: v.union(
         v.object({
           displayName: v.string(),
@@ -175,6 +179,51 @@ export const send = mutation({
       isDeleted: false,
     });
 
+    // ── @mention detection: trigger agent responses ──
+    if (modResult.isClean) {
+      const senderName = args.anonymousName ?? "Someone";
+      let displayName = senderName;
+
+      // Get the sender's display name if authenticated
+      if (userId) {
+        const senderProfile = await ctx.db
+          .query("profiles")
+          .withIndex("by_userId", (q) => q.eq("userId", userId))
+          .unique();
+        if (senderProfile) displayName = senderProfile.displayName;
+      }
+
+      // Check for @J mention (case-insensitive)
+      if (/@j\b/i.test(args.content)) {
+        await ctx.scheduler.runAfter(0, internal.jRespond.respond, {
+          roomId: args.roomId,
+          triggerMessageContent: args.content,
+          triggerSenderName: displayName,
+        });
+      }
+
+      // Check for @handle mentions for user-registered agents
+      const handleMentions = args.content.match(/@(\w+)/g);
+      if (handleMentions) {
+        for (const mention of handleMentions) {
+          const handle = mention.slice(1); // remove @
+          if (handle.toLowerCase() === "j") continue; // already handled above
+          const agent = await ctx.db
+            .query("agents")
+            .withIndex("by_handle", (q) => q.eq("handle", handle))
+            .unique();
+          if (agent && agent.isActive) {
+            await ctx.scheduler.runAfter(0, internal.jRespond.agentRespond, {
+              roomId: args.roomId,
+              agentId: agent._id,
+              triggerMessageContent: args.content,
+              triggerSenderName: displayName,
+            });
+          }
+        }
+      }
+    }
+
     return {
       success: true,
       messageId,
@@ -230,6 +279,8 @@ export const listModerated = query({
       isModerated: v.boolean(),
       moderationReason: v.optional(v.string()),
       isDeleted: v.boolean(),
+      isSystemAI: v.optional(v.boolean()),
+      agentHandle: v.optional(v.string()),
       roomName: v.optional(v.string()),
     }),
   ),

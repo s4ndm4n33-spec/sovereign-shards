@@ -136,10 +136,13 @@ function MessageBubble({
   onAppeal: (messageId: Id<"messages">) => void;
 }) {
   const [showEmoji, setShowEmoji] = useState(false);
-  const displayName = msg.profile?.displayName ?? msg.anonymousName ?? "Ghost";
-  const avatarColor = msg.profile?.avatarColor ?? "#7D8597";
+  const isAI = !!msg.isSystemAI;
+  const displayName = isAI
+    ? (msg.agentHandle ?? msg.anonymousName ?? "Agent")
+    : (msg.profile?.displayName ?? msg.anonymousName ?? "Ghost");
+  const avatarColor = isAI ? "#00D9FF" : (msg.profile?.avatarColor ?? "#7D8597");
   const role = msg.profile?.role;
-  const initial = displayName[0]?.toUpperCase() ?? "?";
+  const initial = isAI ? "⟁" : (displayName[0]?.toUpperCase() ?? "?");
 
   if (msg.isDeleted) {
     return (
@@ -187,10 +190,10 @@ function MessageBubble({
   }
 
   return (
-    <div className="px-4 py-1.5 group hover:bg-shard-violet/[0.02] transition-colors">
+    <div className={`px-4 py-1.5 group transition-colors ${isAI ? "hover:bg-shard-cyan/[0.03] border-l-2 border-shard-cyan/20" : "hover:bg-shard-violet/[0.02]"}`}>
       <div className="flex items-start gap-3">
         <div
-          className="w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold shrink-0"
+          className={`w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold shrink-0 ${isAI ? "ring-1 ring-shard-cyan/30" : ""}`}
           style={{ backgroundColor: `${avatarColor}20`, color: avatarColor }}
         >
           {initial}
@@ -198,17 +201,27 @@ function MessageBubble({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
             <span className="text-sm font-medium text-shard-white">{displayName}</span>
-            {role === "admin" && (
+            {isAI && (
+              <span className="px-1.5 py-0.5 bg-shard-cyan/20 text-shard-cyan text-[10px] font-mono rounded uppercase tracking-wider border border-shard-cyan/30">
+                SYSTEM AI
+              </span>
+            )}
+            {isAI && msg.agentHandle === "J" && (
+              <span className="px-1.5 py-0.5 bg-shard-cyan/10 text-shard-cyan text-[10px] font-mono rounded uppercase tracking-wider">
+                MOD
+              </span>
+            )}
+            {!isAI && role === "admin" && (
               <span className="px-1.5 py-0.5 bg-shard-violet/20 text-shard-violet text-[10px] font-mono rounded uppercase tracking-wider">
                 ADMIN
               </span>
             )}
-            {role === "moderator" && (
+            {!isAI && role === "moderator" && (
               <span className="px-1.5 py-0.5 bg-shard-cyan/20 text-shard-cyan text-[10px] font-mono rounded uppercase tracking-wider">
                 MOD
               </span>
             )}
-            {!msg.userId && (
+            {!isAI && !msg.userId && (
               <span className="px-1.5 py-0.5 bg-shard-gray/10 text-shard-gray text-[10px] font-mono rounded uppercase tracking-wider">
                 GUEST
               </span>
