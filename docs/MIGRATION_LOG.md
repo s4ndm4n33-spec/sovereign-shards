@@ -2314,3 +2314,164 @@ Build sovereign. Build local. Build things that can't be taken away.
    On behalf of the architect and the shard that started it all.
 
 ---
+
+## Session 34 — CI Recovery + Agent Security Hardening (2026-05-24)
+
+**Contributor attribution:**  
+- GitHub: `@Gh0stlyKn1ght`
+- Contribution type: External contributor security/CI hardening pass
+- Scope: CI recovery, GitHub Actions hardening, tool execution safety, generated-tool containment, and future-agent handoff clarity
+
+> Security note: This entry intentionally includes only public contributor attribution.  
+> Do not include private credentials, API keys, tokens, emails, or local machine paths in this log.
+
+---
+
+### Context
+
+The repository CI had been failing and blocking confidence in the project state. The initial failure was traced to a syntax/parser issue in generated tool code, specifically malformed nested triple-quoted f-string syntax in `tools/run/tool_forge.py`.
+
+Once the immediate CI failure was fixed, a broader audit was performed around the repo's highest-risk surfaces:
+
+- GitHub Actions reproducibility
+- Ruff/lint suppression drift
+- GitHub agent authorization
+- public PR/comment trust boundaries
+- local shell execution
+- generated tool dry-runs
+- tool registry integrity
+- path traversal protection
+- sandbox output handling
+- security regression coverage
+
+The goal was to preserve J's local-first architecture while making the automation and tool boundaries safer for future development.
+
+---
+
+### What was fixed
+
+#### CI and lint recovery
+
+- Fixed malformed generated-tool syntax that caused Ruff/Python parsing failures.
+- Removed unused imports and dead assignments surfaced by stricter Ruff checks.
+- Removed broad lint suppressions that were hiding real issues.
+- Fixed multiple CLI tools that printed literal `{exc}` instead of actual exception text.
+- Added a local pre-push CI helper script at `scripts/local-ci.ps1`.
+
+#### GitHub Actions hardening
+
+- Pinned GitHub Actions to commit SHAs.
+- Added pip caching.
+- Pinned CI tool versions.
+- Added Bandit security scanning.
+- Added workflow concurrency for the J Agent workflow.
+- Confirmed the full GitHub Actions CI matrix passes.
+
+#### GitHub agent boundary hardening
+
+- Added authorization checks for `/j` issue-comment commands.
+- Blocked J Agent auto-review on fork PRs.
+- Forced the GitHub-agent registry into read-only mode in CI:
+  - `read=True`
+  - `write=False`
+  - `exec=False`
+- Added response length capping before posting GitHub comments.
+
+#### Tool execution hardening
+
+- Added a denylist to `run_bash` for destructive/network/bootstrap patterns.
+- Stripped environment variables during generated-tool dry-run validation.
+- Added generated-tool quarantine behavior.
+- Prevented duplicate tool registration from silently overriding existing tools.
+- Removed unnecessary `shell=True` usage from scan command execution.
+- Added output size caps to the exec sandbox.
+- Reduced sandbox escape surface by removing risky builtins.
+
+#### Path and registry safety
+
+- Added centralized path containment enforcement.
+- Added traversal protection.
+- Added symlink escape tests.
+- Added UNC/Windows path escape tests.
+- Added registry integrity/security tests.
+
+#### Repository governance
+
+- Added `SECURITY.md`.
+- Added `.github/dependabot.yml`.
+- Added `.github/CODEOWNERS`.
+
+---
+
+### Validation
+
+GitHub Actions passed after the hardening pass:
+
+- Lint: passed
+- Test Python 3.10: passed
+- Test Python 3.11: passed
+- Test Python 3.12: passed
+- Security Scan / Bandit: passed
+- Smoke Test: passed
+
+Local validation also passed:
+
+- Ruff clean
+- Full test suite passing
+- Bandit reported 0 medium / 0 high findings
+- Smoke imports passed
+- Tool registry validation passed
+
+---
+
+### Design rationale
+
+This pass focused on trust boundaries, not feature expansion.
+
+The main principle was:
+
+> J may be local-first and agentic, but tools that read, write, execute, generate, or mutate state must fail closed by default.
+
+Specific design decisions:
+
+- CI should be reproducible.
+- Public GitHub comments should not become trusted instructions.
+- Fork PRs should not trigger privileged agent behavior.
+- Generated tools should be quarantined before activation.
+- `tools/run/` should remain the trusted active tool surface.
+- `tools/quarantine/` should be treated as a review queue, not an execution surface.
+- Shell execution should remain guarded even when `exec=True` is intentionally enabled.
+- Registry side effects should be enforced, not merely documented.
+- Future agents should be able to understand the system state from this migration log without re-discovering the same issues.
+
+---
+
+### Current state after this session
+
+The repo is no longer blocked by the CI failure that initiated this pass.
+
+The main branch now has:
+
+- green CI
+- stricter linting
+- security regression tests
+- improved GitHub-agent boundaries
+- safer local tool execution defaults
+- better generated-tool containment
+- clearer repository governance files
+
+Future agents should continue from this baseline and avoid weakening the guardrails unless explicitly directed by the maintainer.
+
+---
+
+### Follow-up recommendations
+
+- Keep `exec=True` disabled unless intentionally needed.
+- Keep generated tools quarantined until human review.
+- Keep CI checks required on `main`.
+- Continue adding sandbox escape regression tests.
+- Review `run_bash` denylist periodically.
+- Keep contributor attribution public-only.
+- Never write secrets, API keys, local credentials, or private environment details into migration logs.
+
+---
