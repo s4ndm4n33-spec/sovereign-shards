@@ -11,8 +11,10 @@ DEFAULT_CHUNK_BYTES = 1024 * 1024  # 1MB
 
 
 def _resolve(path: str) -> Path:
-    p = Path(path)
-    return p if p.is_absolute() else BASE / p
+    resolved = (BASE / path).resolve() if not Path(path).is_absolute() else Path(path).resolve()
+    if not resolved.is_relative_to(BASE.resolve()):
+        raise ValueError(f"Path traversal blocked: {path!r} escapes project root")
+    return resolved
 
 
 def read_file(path: str, offset: int = 0, chunk_bytes: int = DEFAULT_CHUNK_BYTES) -> str:

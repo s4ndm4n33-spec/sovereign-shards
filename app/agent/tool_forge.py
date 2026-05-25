@@ -30,8 +30,9 @@ if TYPE_CHECKING:
 
 # ── Constants ────────────────────────────────────────────
 
-MAX_RETRIES = 3          # circuit-breaker: max fix attempts
-TOOL_DIR = "tools/run"   # relative to project root
+MAX_RETRIES = 3               # circuit-breaker: max fix attempts
+TOOL_DIR = "tools/run"        # active tools — human-reviewed only
+QUARANTINE_DIR = "tools/quarantine"  # generated tools await human approval here
 LOG_FILE = "logs/tool_forge.jsonl"
 
 
@@ -174,6 +175,13 @@ def validate_tool(code: str, spec: ToolSpec, project_dir: str) -> tuple[bool, st
             return False, "Missing TOOL_NAME constant"
 
         # 5. Dry run — execute the file with a synthetic test input
+        # Strip the environment so generated code cannot exfiltrate tokens or
+        # API keys that exist in the parent process (GITHUB_TOKEN, ANTHROPIC_API_KEY, etc.)
+        clean_env = {
+            k: os.environ[k]
+            for k in ("PATH", "PYTHONPATH", "SYSTEMROOT", "TEMP", "TMP", "HOME", "LANG", "TERM")
+            if k in os.environ
+        }
         test_args = _make_test_args(spec)
         try:
             result = subprocess.run(
@@ -181,6 +189,7 @@ def validate_tool(code: str, spec: ToolSpec, project_dir: str) -> tuple[bool, st
                 capture_output=True, text=True,
                 timeout=10,
                 cwd=project_dir,
+                env=clean_env,
             )
             if result.returncode != 0:
                 err = (result.stderr or result.stdout or "").strip()
@@ -229,12 +238,16 @@ def place_tool_file(
     spec: ToolSpec,
     project_dir: str,
 ) -> str:
-    """Write tool file atomically.  Returns the relative path."""
-    tool_dir = os.path.join(project_dir, TOOL_DIR)
-    os.makedirs(tool_dir, exist_ok=True)
+    """Write generated tool to quarantine. Returns the relative quarantine path.
 
-    filename = f"{spec.tool_name}.py"
-    final_path = os.path.join(tool_dir, filename)
+    Tools in quarantine/ are NOT executed and NOT registered.  A human must
+    review the file and explicitly move it to tools/run/ to activate it.
+    """
+    quarantine_dir = os.path.join(project_dir, QUARANTINE_DIR)
+    os.makedirs(quarantine_dir, exist_ok=True)
+
+    filename = f"{spec.tool_name}.py.pending"
+    final_path = os.path.join(quarantine_dir, filename)
 
     # Atomic write: tmp → rename (FAT32-safe)
     tmp_path = final_path + ".tmp"
@@ -242,7 +255,7 @@ def place_tool_file(
         f.write(code)
     os.replace(tmp_path, final_path)
 
-    return os.path.join(TOOL_DIR, filename)
+    return os.path.join(QUARANTINE_DIR, filename)
 
 
 # ── Logging ──────────────────────────────────────────────
@@ -325,11 +338,12 @@ def forge_tool(
                 attempts=attempt,
                 elapsed_s=time.time() - t0,
             )
-
-            # Hot-register if registry provided
-            if registry is not None:
-                _hot_register(spec, file_path, project_dir, registry)
-
+            # Tool is in quarantine — human must review and activate.
+            # Hot-registration is intentionally removed: the registry parameter
+            # is accepted for API compatibility but ignored.  To activate:
+            #   1. Review tools/quarantine/<name>.py.pending
+            #   2. mv tools/quarantine/<name>.py.pending tools/run/<name>.py
+            #   3. Update tools/run/registry.json
             log_forge_event(result, spec, project_dir)
             return result
 
@@ -348,24 +362,49 @@ def forge_tool(
     return result
 
 
-def _hot_register(
-    spec: ToolSpec,
-    file_path: str,
+def activate_quarantined_tool(
+    pending_path: str,
     project_dir: str,
-    registry: "ToolRegistry",
-) -> None:
-    """Register a freshly forged tool into the live registry."""
+    registry: Optional["ToolRegistry"] = None,
+) -> str:
+    """Move a reviewed tool from quarantine to tools/run/ and optionally register it.
+
+    This is the human-gated activation step.  Call it explicitly after
+    reviewing the quarantined file.
+
+    Args:
+        pending_path: Relative path to the .py.pending file in tools/quarantine/.
+        project_dir:  Absolute path to the project root.
+        registry:     If provided, registers the tool in the live registry.
+
+    Returns:
+        The relative path of the activated tool in tools/run/.
+    """
     from app.agent.tool_registry import ScriptTool, ToolSpec as RegSpec
 
-    script_path = Path(project_dir) / file_path
-    tool_name = f"run_{spec.tool_name}"
-    reg_spec = RegSpec(
-        name=tool_name,
-        description=spec.purpose,
-        args=[a.split(":")[0].strip() for a in spec.inputs],
-        side_effect="exec",
-        timeout_seconds=30,
-    )
-    runner = ScriptTool(name=spec.tool_name, script_path=script_path, spec=reg_spec)
-    registry.tools[tool_name] = runner.run
-    registry.specs[tool_name] = reg_spec
+    src = Path(project_dir) / pending_path
+    if not src.exists():
+        raise FileNotFoundError(f"Quarantined tool not found: {src}")
+    if not src.name.endswith(".py.pending"):
+        raise ValueError(f"Not a quarantine file: {src.name}")
+
+    tool_filename = src.name[: -len(".pending")]  # strip .pending
+    dst = Path(project_dir) / TOOL_DIR / tool_filename
+
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    import shutil
+    shutil.move(str(src), str(dst))
+
+    if registry is not None:
+        tool_name = f"run_{dst.stem}"
+        reg_spec = RegSpec(
+            name=tool_name,
+            description=f"Activated from quarantine: {dst.name}",
+            args=[],
+            side_effect="exec",
+            timeout_seconds=30,
+        )
+        runner = ScriptTool(name=dst.stem, script_path=dst, spec=reg_spec)
+        registry._register(reg_spec, runner.run)
+
+    return str(Path(TOOL_DIR) / tool_filename)

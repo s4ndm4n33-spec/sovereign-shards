@@ -303,7 +303,6 @@ def _detect_shadows(pmap: ProjectMap) -> None:
 
     for name, syms in by_name.items():
         if len(syms) > 1:
-            files = [s.file for s in syms]
             # Only flag if the name is actually imported somewhere
             imported = any(
                 name in imp.names for imp in pmap.imports

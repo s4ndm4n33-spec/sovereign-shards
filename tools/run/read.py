@@ -1,5 +1,5 @@
 # Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
-"""Read a text file with optional line limit.
+"""Read a text file inside the project root with optional line limit.
 
 Usage: python read.py <path> [max_lines]
 If max_lines is given, only the first N lines are returned
@@ -14,9 +14,12 @@ import sys
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
+sys.path.insert(0, os.path.dirname(__file__))
+from _path_guard import safe_path
+
 DEFAULT_MAX_LINES = 40
 
-path = sys.argv[1] if len(sys.argv) > 1 else ""
+path_arg = sys.argv[1] if len(sys.argv) > 1 else ""
 max_lines = DEFAULT_MAX_LINES
 if len(sys.argv) > 2:
     try:
@@ -24,20 +27,21 @@ if len(sys.argv) > 2:
     except ValueError:
         pass
 
-if not path:
+if not path_arg:
     print("[READ ERROR] No path provided.")
-elif not os.path.exists(path):
-    print(f"[READ ERROR] File not found: {path}")
-else:
-    with open(path, encoding="utf-8", errors="replace") as handle:
-        lines = handle.readlines()
+    sys.exit(1)
 
-    total = len(lines)
-    if total <= max_lines:
-        print("".join(lines), end="")
-    else:
-        print("".join(lines[:max_lines]), end="")
-        remaining = total - max_lines
-        print(f"\n[TRUNCATED — showing {max_lines}/{total} lines. "
-              f"{remaining} more lines omitted. "
-              f"Use run_search to find specific content.]")
+resolved = safe_path(path_arg)
+
+with open(resolved, encoding="utf-8", errors="replace") as handle:
+    lines = handle.readlines()
+
+total = len(lines)
+if total <= max_lines:
+    print("".join(lines), end="")
+else:
+    print("".join(lines[:max_lines]), end="")
+    remaining = total - max_lines
+    print(f"\n[TRUNCATED — showing {max_lines}/{total} lines. "
+          f"{remaining} more lines omitted. "
+          f"Use run_search to find specific content.]")

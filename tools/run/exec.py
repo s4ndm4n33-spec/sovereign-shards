@@ -69,7 +69,6 @@ ALLOWED_BUILTINS = {
     "sum",
     "abs",
     "round",
-    "type",
     "isinstance",
     "hasattr",
     "repr",
@@ -207,10 +206,12 @@ try:
         timeout=timeout,
         check=False,
     )
-    if result.stdout:
-        print(result.stdout, end="")
-    if result.stderr:
-        print(result.stderr, end="")
+    MAX_EXEC_OUTPUT = 64 * 1024  # matches bash.py cap
+    output = (result.stdout or "") + (result.stderr or "")
+    if len(output) > MAX_EXEC_OUTPUT:
+        output = output[:MAX_EXEC_OUTPUT] + "\n[SANDBOX OUTPUT TRUNCATED at 64 KB]"
+    if output:
+        print(output, end="")
 except subprocess.TimeoutExpired:
     _reject(f"Execution timed out after {timeout} seconds")
 except Exception as error:

@@ -13,12 +13,6 @@ TOOL_DESC = """Fixes the editor by replacing the broken script with a working on
 
 def run(editor_path, broken_code, working_code) -> str:
     try:
-        with open(editor_path, 'r') as f:
-            current_code = f.read()
-    except OSError as e:
-        return f"[TOOL ERROR] Failed to read {editor_path}: {e}"
-
-    try:
         with open(editor_path, 'w') as f:
             f.write(working_code)
     except OSError as e:
@@ -33,5 +27,5 @@ if __name__ == "__main__":
     try:
         print(run(*args))
     except Exception as exc:
-        print(f"[TOOL ERROR] {{exc}}")
+        print(f"[TOOL ERROR] {exc}")
         sys.exit(1)

@@ -10,6 +10,9 @@ import os
 import sqlite3
 import sys
 
+sys.path.insert(0, os.path.dirname(__file__))
+from _path_guard import safe_path
+
 MAX_ROWS = 500
 MAX_COL_WIDTH = 120
 
@@ -19,7 +22,7 @@ def main() -> None:
         print("[SQL ERROR] Usage: sql.py <db_path> <query>")
         return
 
-    db_path = sys.argv[1]
+    db_path = str(safe_path(sys.argv[1], allow_create=True))
     query = " ".join(sys.argv[2:])
 
     if not query.strip():

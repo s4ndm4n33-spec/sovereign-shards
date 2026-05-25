@@ -1,0 +1,5 @@
+# Global owner — review required on all changes
+* @s4ndm4n33-spec
+
+# Workflow changes require extra scrutiny
+.github/workflows/ @s4ndm4n33-spec

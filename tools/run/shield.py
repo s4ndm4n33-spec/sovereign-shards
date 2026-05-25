@@ -152,9 +152,17 @@ def cmd_autorun() -> None:
 
 def cmd_wipe(path: str) -> None:
     """Secure-delete: overwrite with random bytes, then remove."""
-    if not os.path.isfile(path):
-        print(f"[SHIELD ERROR] File not found: {path}")
+    # Contain wipe to the project root — prevents agent from wiping arbitrary files
+    try:
+        resolved = str(BASE_DIR / path) if not os.path.isabs(path) else path
+        Path(resolved).resolve().relative_to(BASE_DIR)
+    except ValueError:
+        print(f"[SHIELD ERROR] Wipe refused: {path!r} is outside the project root")
         return
+    if not os.path.isfile(resolved):
+        print(f"[SHIELD ERROR] File not found: {resolved}")
+        return
+    path = resolved
 
     try:
         size = os.path.getsize(path)

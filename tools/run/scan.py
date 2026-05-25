@@ -139,8 +139,10 @@ def cmd_creds(scan_path: str = ".") -> list[dict]:
                             continue
                         for pattern, cred_type, risk in _CRED_PATTERNS:
                             if re.search(pattern, line):
-                                # Redact the actual value
-                                clean = line.strip()[:80]
+                                # Redact the actual value after the separator
+                                clean = re.sub(
+                                    r'([=:]\s*)\S+', r'\1[REDACTED]', line.strip()
+                                )[:80]
                                 findings.append({
                                     "type": "exposed_cred", "cred_type": cred_type,
                                     "risk": risk, "file": rel, "line": line_num,
@@ -162,12 +164,19 @@ def cmd_creds(scan_path: str = ".") -> list[dict]:
 
 # ── Windows Security Audit ──────────────────────────────────────────
 
-def _run_cmd(cmd: str) -> str:
-    """Run a shell command, return stdout or error string."""
+def _run_cmd(cmd: list[str], grep: str | None = None) -> str:
+    """Run a command list; optionally filter output lines by substring."""
     try:
-        r = subprocess.run(cmd, shell=True, capture_output=True, timeout=10,
-                           encoding="utf-8", errors="replace")
-        return (r.stdout or "").strip()
+        r = subprocess.run(
+            cmd, shell=False, capture_output=True, timeout=10,
+            encoding="utf-8", errors="replace",
+        )
+        out = (r.stdout or "").strip()
+        if grep:
+            out = "\n".join(l for l in out.splitlines() if grep in l)
+        return out
+    except FileNotFoundError:
+        return f"[ERROR] command not found: {cmd[0]!r}"
     except Exception as e:
         return f"[ERROR] {e}"
 
@@ -177,7 +186,7 @@ def cmd_security() -> list[dict]:
     print("[SCAN] Windows security audit\n")
 
     # Firewall status
-    fw = _run_cmd("netsh advfirewall show allprofiles state")
+    fw = _run_cmd(["netsh", "advfirewall", "show", "allprofiles", "state"])
     if "ON" in fw.upper():
         print("  [OK] Firewall is ON")
     else:
@@ -187,7 +196,7 @@ def cmd_security() -> list[dict]:
                          "fix": "netsh advfirewall set allprofiles state on"})
 
     # UAC status
-    uac = _run_cmd('reg query "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" /v EnableLUA')
+    uac = _run_cmd(["reg", "query", r"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System", "/v", "EnableLUA"])
     if "0x1" in uac:
         print("  [OK] UAC is enabled")
     else:
@@ -197,7 +206,7 @@ def cmd_security() -> list[dict]:
                          "fix": 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System" /v EnableLUA /t REG_DWORD /d 1 /f'})
 
     # Windows Defender
-    defender = _run_cmd('reg query "HKLM\\SOFTWARE\\Microsoft\\Windows Defender" /v DisableAntiSpyware')
+    defender = _run_cmd(["reg", "query", r"HKLM\SOFTWARE\Microsoft\Windows Defender", "/v", "DisableAntiSpyware"])
     if "0x1" in defender:
         print("  [CRITICAL] Windows Defender is DISABLED")
         findings.append({"type": "defender", "risk": "CRITICAL",
@@ -207,7 +216,7 @@ def cmd_security() -> list[dict]:
         print("  [OK] Windows Defender appears active")
 
     # RDP status
-    rdp = _run_cmd('reg query "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" /v fDenyTSConnections')
+    rdp = _run_cmd(["reg", "query", r"HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server", "/v", "fDenyTSConnections"])
     if "0x0" in rdp:
         print("  [HIGH] RDP is ENABLED (remote access open)")
         findings.append({"type": "rdp", "risk": "HIGH",
@@ -217,11 +226,11 @@ def cmd_security() -> list[dict]:
         print("  [OK] RDP is disabled")
 
     # Password policy
-    pw = _run_cmd("net accounts")
+    pw = _run_cmd(["net", "accounts"])
     print(f"\n  Password policy:\n    {pw[:300]}")
 
     # Automatic updates
-    wu = _run_cmd('reg query "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU" /v NoAutoUpdate')
+    wu = _run_cmd(["reg", "query", r"HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU", "/v", "NoAutoUpdate"])
     if "0x1" in wu:
         print("  [MEDIUM] Automatic updates are DISABLED")
         findings.append({"type": "updates", "risk": "MEDIUM",
@@ -244,7 +253,7 @@ def cmd_network() -> list[dict]:
     print("[SCAN] Network audit\n")
 
     # Network interfaces
-    ifaces = _run_cmd("ipconfig /all") if os.name == "nt" else _run_cmd("ip addr")
+    ifaces = _run_cmd(["ipconfig", "/all"]) if os.name == "nt" else _run_cmd(["ip", "addr"])
     print("  Interfaces (summary):")
     for line in ifaces.split("\n")[:20]:
         stripped = line.strip()
@@ -253,9 +262,11 @@ def cmd_network() -> list[dict]:
 
     # Listening ports
     if os.name == "nt":
-        netstat = _run_cmd("netstat -an | findstr LISTENING")
+        netstat = _run_cmd(["netstat", "-an"], grep="LISTENING")
     else:
-        netstat = _run_cmd("netstat -tlnp 2>/dev/null || ss -tlnp")
+        netstat = _run_cmd(["netstat", "-tlnp"])
+        if not netstat or netstat.startswith("[ERROR]"):
+            netstat = _run_cmd(["ss", "-tlnp"])
     listeners = [l.strip() for l in netstat.split("\n") if l.strip()]
     print(f"\n  Listening ports: {len(listeners)}")
     for l in listeners[:15]:
@@ -265,7 +276,7 @@ def cmd_network() -> list[dict]:
 
     # Open shares (Windows)
     if os.name == "nt":
-        shares = _run_cmd("net share")
+        shares = _run_cmd(["net", "share"])
         if shares and "ERROR" not in shares:
             non_default = [l for l in shares.split("\n")
                            if l.strip() and not l.startswith("-")
@@ -282,7 +293,7 @@ def cmd_network() -> list[dict]:
                 print("\n  [OK] No non-default shares")
 
     # ARP table (potential spoofing check)
-    arp = _run_cmd("arp -a")
+    arp = _run_cmd(["arp", "-a"])
     arp_lines = [l for l in arp.split("\n") if l.strip() and "Interface" not in l and "Internet" not in l]
     print(f"\n  ARP entries: {len(arp_lines)}")
     # Check for duplicate MACs (ARP spoofing indicator)
@@ -323,9 +334,15 @@ def cmd_services() -> list[dict]:
     print("[SCAN] Service enumeration\n")
 
     if os.name == "nt":
-        svc = _run_cmd('sc query type= service state= all | findstr "SERVICE_NAME DISPLAY_NAME STATE"')
+        svc_raw = _run_cmd(["sc", "query", "type=", "service", "state=", "all"])
+        svc = "\n".join(
+            l for l in svc_raw.splitlines()
+            if any(kw in l for kw in ("SERVICE_NAME", "DISPLAY_NAME", "STATE"))
+        )
     else:
-        svc = _run_cmd("systemctl list-units --type=service --state=running --no-pager 2>/dev/null || service --status-all 2>/dev/null")
+        svc = _run_cmd(["systemctl", "list-units", "--type=service", "--state=running", "--no-pager"])
+        if not svc or svc.startswith("[ERROR]"):
+            svc = _run_cmd(["service", "--status-all"])
 
     running = []
     lines = svc.split("\n")

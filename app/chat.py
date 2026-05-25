@@ -176,7 +176,7 @@ Keep response under 100 words. Be direct and technical.
                     max_tokens=150,
                 )
                 return f"{raw_output}\n\n[REASONING]\n{reasoning}"
-            except Exception as e:
+            except Exception:
                 # Fallback to raw output if LLM fails
                 return raw_output
         else:
@@ -228,9 +228,8 @@ Keep response under 100 words. Be direct and technical.
 def run_chat():
     """Main chat loop: REPL for the Shard with LLM support."""
     boss = JarvisOneForAll()
-    config = None
     try:
-        config = create_client()
+        create_client()
     except Exception as e:
         print(f"[WARN] Config load failed: {e}")
 

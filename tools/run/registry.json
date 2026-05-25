@@ -181,7 +181,7 @@
     "side_effect": "read"
   },
   "run_keyword_inference_replace": {
-    "description": "Searches repo via keyword inference and replaces with alternative user designated keywords",
+    "description": "Searches repo via keyword inference and replaces with alternative user designated keywords. Contained to project root.",
     "args": [
       {
         "name": "keyword",
@@ -199,7 +199,7 @@
         "required": true
       }
     ],
-    "side_effect": "exec"
+    "side_effect": "write"
   },
   "run_api_generator": {
     "description": "Generate REST API endpoints from a schema",
@@ -253,17 +253,17 @@
       },
       {
         "name": "inputs",
-        "type": "list[str]",
+        "type": "list",
         "required": true
       },
       {
         "name": "outputs",
-        "type": "list[str]",
+        "type": "list",
         "required": true
       },
       {
         "name": "dependencies",
-        "type": "list[str]",
+        "type": "list",
         "required": true
       }
     ],

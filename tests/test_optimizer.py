@@ -198,7 +198,6 @@ class TestApplyAllDeterministic:
         """)
         tree = ast.parse(code)
         new_tree, results = apply_all_deterministic(tree)
-        output = ast.unparse(new_tree)
         applied = [r for r in results if r.applied]
         assert len(applied) >= 2  # at least mutable + bare except
 

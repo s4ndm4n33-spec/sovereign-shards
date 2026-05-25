@@ -40,6 +40,16 @@ class ToolRegistry:
         return self.tools.keys()
 
     def _register(self, spec: ToolSpec, fn: ToolCallable) -> None:
+        if spec.name in self.tools:
+            raise ValueError(
+                f"Tool '{spec.name}' is already registered — refusing silent override. "
+                "Use _reregister() explicitly if a deliberate replacement is intended."
+            )
+        self.specs[spec.name] = spec
+        self.tools[spec.name] = fn
+
+    def _reregister(self, spec: ToolSpec, fn: ToolCallable) -> None:
+        """Deliberate replacement of an existing tool. Requires explicit call."""
         self.specs[spec.name] = spec
         self.tools[spec.name] = fn
 

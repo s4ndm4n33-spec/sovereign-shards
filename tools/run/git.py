@@ -16,7 +16,7 @@ ALLOWED = {
     "status", "diff", "log", "add", "commit", "branch", "checkout",
     "stash", "show", "reset", "rev-parse", "remote", "push",
 }
-GATED = {"push", "commit"}  # Commands that trigger sandbox validation
+GATED = {"push", "commit", "reset"}  # Commands that trigger sandbox validation
 MAX_OUTPUT = 64 * 1024
 
 

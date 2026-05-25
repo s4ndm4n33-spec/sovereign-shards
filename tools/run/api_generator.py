@@ -40,5 +40,5 @@ if __name__ == "__main__":
     try:
         print(run(*args))
     except Exception as exc:
-        print(f"[TOOL ERROR] {{exc}}")
+        print(f"[TOOL ERROR] {exc}")
         sys.exit(1)
