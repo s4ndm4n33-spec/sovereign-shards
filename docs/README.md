@@ -8,7 +8,7 @@
 |----------|-------------|
 | [User Manual](USER_MANUAL.md) | Commands, configuration, tools, example workflows, architecture |
 | [Tool Reference](TOOL_REFERENCE.md) | All 17 tools — args, side-effects, examples, router shortcuts |
-| [Migration Log](MIGRATION_LOG.md) | 1,800+ line engineering diary — 27 sessions of build history |
+| [Migration Log](MIGRATION_LOG.md) | 2,478-line engineering diary — 33 sessions of build history |
 | [Roadmap](ROADMAP.md) | 5-phase plan with success criteria and phase gates |
 | [Next 10 Steps](NEXT_10_STEPS.md) | Deterministic task list for the next developer |
 
