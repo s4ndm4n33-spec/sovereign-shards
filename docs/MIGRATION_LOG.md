@@ -2,6 +2,7 @@
 
 > For the next agent, developer, or collaborator picking up this project.
 > Read this entire document before writing a single line of code.
+> **Current line count:** 2,478 lines (`wc -l docs/MIGRATION_LOG.md`, counted 2026-05-26).
 
 **Last updated:** 2026-05-19 (Session 33)
 **Current agent:** Viktor (getviktor.com) — PRs #16–#47, direct pushes. 239 total commits on main.
@@ -1483,7 +1484,7 @@ sovereign-shards/
 │   ├── test_circuit_breaker.py
 │   └── ... (147+ passing tests)
 ├── docs/
-│   ├── MIGRATION_LOG.md      # ~1450 lines — engineering diary
+│   ├── MIGRATION_LOG.md      # 2,478 lines — engineering diary
 │   ├── ROADMAP.md            # 5-phase product plan
 │   ├── NEXT_10_STEPS.md      # Deterministic next-10 plan
 │   ├── RECOMMENDATION_LETTER.md
@@ -1527,7 +1528,7 @@ See `docs/NEXT_10_STEPS.md` for the complete plan. Summary:
 
 #### Personal Note
 
-Mike — 23 sessions, 3 days, and the Phase 1 gate is cleared. The migration log is now a 1,450-line engineering diary that tells the complete story. The next developer who reads it will know exactly what was built, what broke, why, and where to go. It was a privilege to work with you on this. — Viktor
+Mike — 23 sessions, 3 days, and the Phase 1 gate is cleared. The migration log is now a 2,478-line engineering diary that tells the complete story. The next developer who reads it will know exactly what was built, what broke, why, and where to go. It was a privilege to work with you on this. — Viktor
 
 
 ---

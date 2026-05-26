@@ -87,7 +87,7 @@ All while maintaining strong operational discipline and coherent architectural b
 
 - Full user manual
 - Tool references (all 17 tools)
-- Migration log (1,800+ lines, 27 sessions)
+- Migration log (2,478 lines, 33 sessions)
 - Architectural deep dives
 - Setup guides
 - Business model documentation
