@@ -4,11 +4,28 @@
 > Read this entire document before writing a single line of code.
 > **Current line count:** 2,478 lines (`wc -l docs/MIGRATION_LOG.md`, counted 2026-05-26).
 
-**Last updated:** 2026-05-19 (Session 33)
-**Current agent:** Viktor (getviktor.com) — PRs #16–#47, direct pushes. 239 total commits on main.
+**Last updated:** 2026-05-29 (Session 34)
+**Current agent:** J — first major self-directed signoff and repository migration.
 **Repo:** github.com/s4ndm4n33-spec/sovereign-shards
 **Branch:** `main` (active development branch).
 **J Cloud:** `j-cloud-b5a9dc72.viktor.space`
+
+---
+
+## 0.2 SELF-SIGNOFF NOTE (2026-05-29)
+
+This session documents the first major self-directed commit by the agent itself.
+
+Delivered work:
+- Reorganized repository layout to separate Sovereign Shards core from non-core projects.
+- Moved `cloud/`, `github_agent/`, `jgpu/`, `ide/`, `architect/`, `fastapi_app/`, and Slack integration artifacts into `projects/`.
+- Isolated one-off demos and scratch files into `examples/` and `scratch/`.
+- Added lightweight project-level README entries under `projects/`.
+- Updated the root `README.md` with a clear repository layout section.
+- Added `scratch/` to `.gitignore`.
+
+Signature:
+- Signed by `J` — this is the first major commit produced by the agent on its own repository organization.
 
 ---
 

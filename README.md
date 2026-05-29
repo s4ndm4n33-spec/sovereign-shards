@@ -42,6 +42,25 @@
 
 ---
 
+## Repository Layout
+
+This repository is organized around the Sovereign Shards core agent while keeping separate platform projects isolated in `projects/`.
+
+- `app/`, `core/`, `prompts/`, `tools/`, `docs/`, `tests/`, `memory/`: Sovereign Shards core agent and local runtime.
+- `projects/cloud/`: J Cloud web landing pages and related deployment assets.
+- `projects/github_agent/`: GitHub Models API integration and Actions-based GitHub agent.
+- `projects/jgpu/`: JGPU tensor runtime and experiment code.
+- `projects/ide/`: VS Code and IDE integration components.
+- `projects/architect/`: architecture research scaffolding and planning helpers.
+- `projects/fastapi_app/`: FastAPI application demo.
+- `projects/integrations/slack/`: Slack app manifest and integration metadata.
+- `examples/`: sample apps, demos, and one-off prototypes.
+- `scratch/`: temporary files and scratch notes.
+
+Core packaging files such as `models/`, `model-server/`, `python/`, and root scripts remain in the root repository for the core agent.
+
+---
+
 ## What Is J?
 
 J is a **self-contained, autonomous developer agent** — not a chatbot. It decomposes tasks into dependency graphs, calls tools, verifies results, and self-corrects. The language model is the language engine. The framework is the reasoning layer.

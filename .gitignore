@@ -33,6 +33,7 @@ Desktop.ini
 # Temp
 *.tmp
 *.bak
+scratch/
 
 # GitHub agent output
 j_response.md
