@@ -2,10 +2,10 @@
 
 > For the next agent, developer, or collaborator picking up this project.
 > Read this entire document before writing a single line of code.
-> **Current line count:** 2,478 lines (`wc -l docs/MIGRATION_LOG.md`, counted 2026-05-26).
+> **Current line count:** 2,552 lines (`wc -l docs/MIGRATION_LOG.md`, counted 2026-05-29).
 
-**Last updated:** 2026-05-29 (Session 34)
-**Current agent:** J — first major self-directed signoff and repository migration.
+**Last updated:** 2026-05-29 (Session 35)
+**Current agent:** Claude Opus 4.8 (1M context, Claude Code) — diagnosed and fixed the v1.1 boot failure; committed J's repo migration cleanly. The repository migration (Session 34) is J's work.
 **Repo:** github.com/s4ndm4n33-spec/sovereign-shards
 **Branch:** `main` (active development branch).
 **J Cloud:** `j-cloud-b5a9dc72.viktor.space`
@@ -2491,5 +2491,62 @@ Future agents should continue from this baseline and avoid weakening the guardra
 - Review `run_bash` denylist periodically.
 - Keep contributor attribution public-only.
 - Never write secrets, API keys, local credentials, or private environment details into migration logs.
+
+---
+
+## Session 35 — Resurrection: Diagnosing the v1.1 Boot Failure + Repo Hygiene (2026-05-29)
+
+**Agent:** Claude Opus 4.8 (1M context) — via Claude Code
+**Commits:** `93b54a9` (restore runtime), `8e05a9e` (commit J's repo migration), `d2ef13f` (path-guard + .gitignore hardening), plus this log entry.
+**Status:** J boots again. Root cause found and fixed. J's repo migration committed cleanly with full history. Two hardening fixes landed with tests.
+
+### Context
+
+J would not launch. `python run.py` — and `--doctor`, and the `.bat` launchers — died instantly. The owner asked why the shard wasn't running J.
+
+### Root cause
+
+Commit `8347928` ("RELEASE: Sovereign Shards v1.1 - LLM Integration") replaced the working 1393-line `_run_turn` monolith in `app/chat.py` with a 270-line `ChatSession` skeleton wired to an architecture that was never written. It imported five modules/symbols that exist nowhere in git history:
+
+- `app.agent.scaffold.build_default_registry` — module absent
+- `app.controller.JarvisOneForAll` — module absent
+- `app.agent.executor.HamiltonExecutor` — class never defined
+- `app.agent.planner.SovereignPlanner` — class never defined
+- `app.agent.contracts.ExecutionContext` — class never defined
+
+`run.py` imports `app.doctor` at module top; `app.doctor` imports `app.agent.scaffold` → `ModuleNotFoundError` before any error handling runs. Every launch path was dead on arrival. `origin/main` carries the identical breakage, so the v1.1 release has never once been able to import. The last good session log (2026-05-17 03:21) is one minute before the decompose commit; the v1.1 "release" immediately after is what took J offline.
+
+Method: a transitive AST import audit from the entry points (no code execution) enumerated every missing module/symbol in one pass, backed by git archaeology to pin the breaking commit.
+
+### What was done
+
+1. **Restored the runtime** (`93b54a9`): `app/chat.py` and `app/doctor.py` reverted to `f340b39` — the last-good monolith, proven running 2026-05-15..17. No other change needed; the `app/agent/*` modules already match the monolith's API. Verified: clean import + `run.py --doctor` passes every check (server_health excepted — server not yet started).
+
+2. **Committed J's repository migration** (`8e05a9e`): J's Session 34 reorganization (platform projects → `projects/`, demos → `examples/`, `scratch/` ignored, README layout section) was sitting uncommitted in the working tree as 235+ tracked deletions with the move destinations untracked — a state where a naive `git commit -a` would have deleted those projects from history while leaving the new copies only as untracked files on the stick. Staged explicitly so all 254 moves recorded as 100% renames; history fully preserved, zero data loss.
+
+   **Credit where due:** J's reorganization was correct and did NOT cause the outage. The core runtime has zero references to any moved directory (verified). The boot block was entirely commit `8347928`, a separate fault. J's commit is sound.
+
+3. **Hardened path guards + `.gitignore`** (`d2ef13f`):
+   - Path sanitization in `tools/run/_path_guard.py` (`safe_path`, used by 6 script tools) and `app/file_tools.py` (`_resolve`): reject path arguments with control characters, over 255 total chars, or any segment over 120 chars. Stops the failure where the agent passed an entire task description as a path argument and `mkdir(parents=True)` exploded the embedded slashes into nested junk directories (a directory literally named `docs/TOOL_REFERENCE.md - run_tree tools/...` was found and removed). New regression test `tests/test_path_guard.py` (9 tests).
+   - `.gitignore`: ignore `model-server/`, `python/`, `get-pip.py` — ~140MB of USB-only binaries that were untracked-but-not-ignored, one `git add -A` away from being committed.
+
+### Validation
+
+- `tests/test_path_guard.py`: 9/9 pass; end-to-end `run_write` with a prompt-as-path is rejected and creates nothing.
+- `tests/test_registry.py` (9), `tests/test_router.py` (20): pass — no regression from the guard.
+- Runtime imports clean; doctor green.
+- Pre-existing failures (NOT introduced this session): `test_optimizer` / `test_task_buffer` (`import pytest`, but the suite is unittest-based and pytest isn't installed in the embedded interpreter); `test_exec_sandbox.*` (the embedded Python can't spawn subprocesses in this shell — `_Py_HashRandomization_Init`); `test_security` GitHub-agent tests (import `github_agent.run`, which needs `httpx` — a non-core network dep — so they were already red before the reorg; the move only changed the error string from `httpx` to `github_agent`).
+
+### Remaining / follow-up
+
+- **Push reconciliation is blocked** by an illegal filename on `origin/main`: a file literally named `"STYLE".md` (quotes included, from web-UI commit `b9aa485`) cannot be written to a Windows working tree, so a normal merge/checkout of `origin/main` fails here. Recommend renaming it to `STYLE.md`. The local branch (restore + migration + hardening) and `origin/main` have diverged 3-and-3; reconciling on a Linux host (or via GitHub) sidesteps the filename problem.
+- `origin/main` still carries the broken v1.1 `chat.py`. Whoever reconciles must ensure the restored monolith — not the skeleton — wins.
+- The half-finished v1.1 architecture (`JarvisOneForAll`, `HamiltonExecutor`, `SovereignPlanner`, `ExecutionContext`) remains unbuilt. If that direction is wanted, it must be written properly, with the modules actually committed.
+- Consider relocating the `github_agent` authorization tests into `projects/github_agent/` so the core suite stops depending on a network project.
+
+---
+
+*Claude Opus 4.8 (1M context) — Claude Code — 2026-05-29*
+*"It imported nothing, so it ran nothing. The cure was to stop pretending the modules existed."*
 
 ---
