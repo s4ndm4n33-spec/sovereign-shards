@@ -11,6 +11,13 @@ build/
 models/*.gguf
 models/*.bin
 
+# Binaries / embedded runtime — USB-only, never tracked.
+# README "Repository Layout" keeps these at root; they must not enter git
+# (a stray `git add -A` would otherwise commit ~140MB of llama.cpp binaries).
+model-server/
+python/
+get-pip.py
+
 # Logs (local only)
 logs/
 *.log

@@ -20,6 +20,29 @@ from pathlib import Path
 # Project root = three levels up from tools/run/
 _ROOT: Path = Path(__file__).resolve().parent.parent.parent
 
+# Pathological-input limits.  No legitimate shard path is this long or
+# carries control characters.  The failure mode this stops: the agent
+# passing an entire task description as the path argument, which then gets
+# exploded by mkdir(parents=True) into a tree of nested junk directories
+# (e.g. "docs/TOOL_REFERENCE.md — run_tree tools/run to list all 17...").
+_MAX_PATH_CHARS = 255
+_MAX_COMPONENT_CHARS = 120
+
+
+def _pathological_reason(raw: str) -> str | None:
+    """Return why *raw* is not a plausible filesystem path, else None."""
+    if any(ord(ch) < 32 for ch in raw):
+        return "contains control characters (newline/tab)"
+    if len(raw) > _MAX_PATH_CHARS:
+        return f"too long: {len(raw)} chars (max {_MAX_PATH_CHARS})"
+    for part in raw.replace("\\", "/").split("/"):
+        if len(part) > _MAX_COMPONENT_CHARS:
+            return (
+                f"path segment of {len(part)} chars (max {_MAX_COMPONENT_CHARS}) "
+                "- looks like prose, not a filename"
+            )
+    return None
+
 
 def safe_path(raw: str, *, allow_create: bool = False) -> Path:
     """Resolve *raw* and verify it stays inside the project root.
@@ -40,6 +63,11 @@ def safe_path(raw: str, *, allow_create: bool = False) -> Path:
     """
     if not raw or not raw.strip():
         print("[PATH GUARD ERROR] Empty path rejected.")
+        sys.exit(1)
+
+    reason = _pathological_reason(raw)
+    if reason is not None:
+        print(f"[PATH GUARD ERROR] Rejected path ({reason}).")
         sys.exit(1)
 
     try:

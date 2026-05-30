@@ -9,8 +9,32 @@ BASE = Path.cwd()
 MAX_FILE_BYTES = 4 * 1024 * 1024 * 1024  # 4GB cap (FAT32-safe)
 DEFAULT_CHUNK_BYTES = 1024 * 1024  # 1MB
 
+# Pathological-input limits — mirror tools/run/_path_guard.py.  Stops the
+# agent from passing a whole task description as a path, which mkdir then
+# explodes into nested junk directories.
+MAX_PATH_CHARS = 255
+MAX_COMPONENT_CHARS = 120
+
+
+def _pathological_reason(path: str) -> str | None:
+    """Return why *path* is not a plausible filesystem path, else None."""
+    if any(ord(ch) < 32 for ch in path):
+        return "contains control characters (newline/tab)"
+    if len(path) > MAX_PATH_CHARS:
+        return f"too long: {len(path)} chars (max {MAX_PATH_CHARS})"
+    for part in path.replace("\\", "/").split("/"):
+        if len(part) > MAX_COMPONENT_CHARS:
+            return (
+                f"path segment of {len(part)} chars (max {MAX_COMPONENT_CHARS}) "
+                "- looks like prose, not a filename"
+            )
+    return None
+
 
 def _resolve(path: str) -> Path:
+    reason = _pathological_reason(path)
+    if reason is not None:
+        raise ValueError(f"Rejected path ({reason}): {path[:60]!r}")
     resolved = (BASE / path).resolve() if not Path(path).is_absolute() else Path(path).resolve()
     if not resolved.is_relative_to(BASE.resolve()):
         raise ValueError(f"Path traversal blocked: {path!r} escapes project root")
