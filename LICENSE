@@ -1,89 +1,376 @@
-Business Source License 1.1
+# SOVEREIGN SHARDS LICENSE, CREATOR CHARTER, AND PLATFORM COVENANT
 
-License text copyright (c) 2017 MariaDB Corporation Ab, All Rights Reserved.
-"Business Source License" is a trademark of MariaDB Corporation Ab.
+Version 1.0
 
------------------------------------------------------------------------------
+Copyright (c) 2026 Mike McCollum
 
-Parameters
+All Rights Reserved.
 
-Licensor:             Mike McCollum (s4ndm4n33)
-Licensed Work:        Sovereign Shards
-                      The Licensed Work is (c) 2024-2026 Reed Richards.
-Additional Use Grant: You may use the Licensed Work for non-commercial,
-                      personal, educational, and research purposes.
-                      You may NOT use the Licensed Work to provide a
-                      commercial product or service that competes with
-                      the Licensed Work or any product or service offered
-                      by the Licensor.
-Change Date:          2030-05-17
-Change License:       Apache License, Version 2.0
+Author and Steward: Mike McCollum
 
------------------------------------------------------------------------------
+---
 
-Terms
+# PREAMBLE
 
-The Licensor hereby grants you the right to copy, modify, create derivative
-works, redistribute, and make non-production use of the Licensed Work. The
-Licensor may make an Additional Use Grant, above, permitting limited
-production use.
+Sovereign Shards is a sovereign computing ecosystem conceived, designed, and originated by Mike McCollum.
 
-Effective on the Change Date, or the fourth anniversary of the first publicly
-available distribution of a specific version of the Licensed Work under this
-License, whichever comes first, the Licensor hereby grants you rights under
-the terms of the Change License, and the rights granted in the paragraph
-above terminate.
+The purpose of Sovereign Shards is to enable individuals, creators, developers, communities, organizations, agents, and future generations of participants to build, own, and operate digital worlds, software systems, knowledge systems, businesses, creative works, and sovereign technological infrastructure.
 
-If your use of the Licensed Work does not comply with the requirements
-currently in effect as described in this License, you must purchase a
-commercial license from the Licensor, its affiliated entities, or authorized
-resellers, or you must refrain from using the Licensed Work.
+This License exists to establish a covenant between the Platform and its participants.
 
-All copies of the original and modified Licensed Work, and derivative works
-of the Licensed Work, are subject to this License. This License applies
-separately for each version of the Licensed Work and the Change Date may
-vary for each version of the Licensed Work released by Licensor.
+The intent of this covenant is simple:
 
-You must conspicuously display this License on each original or modified copy
-of the Licensed Work. If you receive the Licensed Work in original or
-modified form from a third party, the terms and conditions set forth in this
-License apply to your use of that work.
+* Creators should own what they create.
+* Contributors should receive recognition for what they contribute.
+* Developers should be free to build.
+* Businesses should be free to operate.
+* Innovation should be encouraged.
+* Stewardship should be preserved.
+* The Sovereign Shards platform should remain protected.
+* The Sovereign Shards ecosystem should not be appropriated, rebranded, fragmented, or commercialized by parties seeking to claim ownership of the platform itself.
 
-Any use of the Licensed Work in violation of this License will automatically
-terminate your rights under this License for the current and all other
-versions of the Licensed Work.
+Sovereign Shards is not a public-domain project.
 
-This License does not grant you any right in any trademark or logo of
-Licensor or its affiliates (provided that you may use a trademark or logo of
-Licensor as expressly required by this License).
+Sovereign Shards is not an abandoned commons.
 
-TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSED WORK IS PROVIDED ON
-AN "AS IS" BASIS. LICENSOR HEREBY DISCLAIMS ALL WARRANTIES AND CONDITIONS,
-EXPRESS OR IMPLIED, INCLUDING (WITHOUT LIMITATION) WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND
-TITLE.
+Sovereign Shards is not a platform intended to be forked into competing ecosystems.
 
-MariaDB hereby grants you permission to use this License's text to license
-your works, and to refer to it using the trademark "Business Source License",
-as long as you comply with the Covenants of Licensor below.
+Sovereign Shards is a living ecosystem under active stewardship.
 
-Covenants of Licensor
+This License grants broad rights to participate in the ecosystem while reserving ownership of the platform itself.
 
-In consideration of the right to use this License's text and the "Business
-Source License" name and trademark, Licensor covenants to MariaDB, and to all
-other recipients of the licensed work to be provided by Licensor:
+---
 
-1. To specify as the Change License the GPL Version 2.0 or any later version,
-   or a license that is compatible with GPL Version 2.0 or a later version,
-   where "compatible" means that software provided under the Change License can
-   be included in a program with software provided under GPL Version 2.0 or a
-   later version. Licensor may specify additional Change Licenses without
-   limitation.
+# ARTICLE I — DEFINITIONS
 
-2. To either: (a) specify an additional grant of rights to use that does not
-   impose any additional restriction on the right granted in this License, as
-   the Additional Use Grant; or (b) insert the text "None".
+For purposes of this License:
 
-3. To specify a Change Date.
+"Platform" means Sovereign Shards and all official software, services, infrastructure, repositories, protocols, documentation, systems, and distributions designated as part of the Sovereign Shards ecosystem.
 
-4. Not to modify this License in any other way.
+"Platform Owner" means Mike McCollum and any successor entity designated by Mike McCollum to steward Sovereign Shards.
+
+"Core Technology" means any runtime, execution engine, kernel, orchestration system, platform infrastructure, protocol, framework, platform service, marketplace service, identity service, or foundational technology designated as part of the Sovereign Shards core.
+
+"Ecosystem Components" means APIs, SDKs, templates, examples, plugin systems, integration layers, development tooling, documentation examples, and public developer resources.
+
+"Creator Works" means any shard, world, plugin, application, workflow, service, dataset, prompt collection, story, artwork, business, content, or derivative creation produced by a participant using the Platform.
+
+"Contributor" means any individual or organization contributing code, documentation, designs, assets, ideas, fixes, improvements, or other materials to the Platform.
+
+"Official Distribution" means any distribution approved by the Platform Owner.
+
+---
+
+# ARTICLE II — PRINCIPLE OF SOVEREIGNTY
+
+The central principle of Sovereign Shards is sovereignty.
+
+The Platform exists to empower participants rather than extract ownership from them.
+
+Accordingly:
+
+You own what you create.
+
+You retain ownership of your works.
+
+You retain ownership of your businesses.
+
+You retain ownership of your ideas.
+
+You retain ownership of your worlds, shards, plugins, services, assets, workflows, stories, and intellectual property.
+
+The Platform does not claim ownership of Creator Works solely because they were created using Sovereign Shards.
+
+At the same time:
+
+The Platform remains the property of its owner.
+
+Participation does not transfer ownership.
+
+Contribution does not transfer ownership.
+
+Use does not transfer ownership.
+
+Extension does not transfer ownership.
+
+The right to build upon the Platform is not the right to take the Platform itself.
+
+---
+
+# ARTICLE III — PLATFORM OWNERSHIP
+
+All rights not expressly granted under this License remain reserved.
+
+Ownership of the Platform includes but is not limited to:
+
+* Core architecture
+* Runtime systems
+* Platform infrastructure
+* Execution engines
+* Kernel systems
+* Orchestration systems
+* Official repositories
+* Official documentation
+* Official distributions
+* Official marketplaces
+* Official hosted services
+* Official governance structures
+* Official branding
+
+Nothing within this License transfers ownership of the Platform to any user, contributor, developer, organization, or third party.
+
+---
+
+# ARTICLE IV — CREATOR RIGHTS
+
+Creators retain full ownership of Creator Works.
+
+Creator Works include but are not limited to:
+
+* Shards
+* Worlds
+* Plugins
+* Applications
+* Services
+* Businesses
+* Workflows
+* Datasets
+* Characters
+* Stories
+* Artwork
+* Content
+* Assets
+* Intellectual property
+
+Creators may:
+
+* Publish Creator Works
+* License Creator Works
+* Sell Creator Works
+* Open-source Creator Works
+* Commercialize Creator Works
+* Transfer Creator Works
+* Build businesses from Creator Works
+
+The Platform Owner does not claim ownership of Creator Works solely because they were created using the Platform.
+
+---
+
+# ARTICLE V — PERMITTED USE
+
+Participants may:
+
+* Use the Platform
+* Learn from the Platform
+* Build upon the Platform
+* Extend the Platform through approved mechanisms
+* Create plugins
+* Create integrations
+* Create applications
+* Create businesses
+* Create educational materials
+* Operate commercial services based on Creator Works
+
+Commercial activity based on Creator Works is expressly permitted.
+
+The success of creators is considered beneficial to the ecosystem.
+
+---
+
+# ARTICLE VI — CONTRIBUTIONS
+
+Contributors retain authorship of their contributions.
+
+By contributing to official Sovereign Shards repositories, Contributors grant the Platform Owner a perpetual, worldwide, irrevocable, royalty-free license to:
+
+* Use contributions
+* Modify contributions
+* Incorporate contributions
+* Redistribute contributions
+* Commercialize contributions as part of the Platform
+* Maintain contributions
+* Archive contributions
+
+Contributors represent that they possess sufficient rights to submit their contributions.
+
+Contributors may continue using their own contributions elsewhere unless restricted by separate agreements.
+
+---
+
+# ARTICLE VII — PROTECTION OF THE PLATFORM
+
+Without explicit written permission from the Platform Owner, no person or organization may:
+
+* Fork the Platform and distribute it as a competing platform
+* Fork the Platform and rebrand it
+* Remove authorship notices
+* Remove copyright notices
+* Remove licensing notices
+* Present the Platform as their own creation
+* Offer the Platform itself as a competing hosted service
+* Redistribute modified Core Technology
+* Create derivative platforms substantially based on Core Technology for purposes of competing with Sovereign Shards
+* Misrepresent affiliation with Sovereign Shards
+
+The Platform may be extended.
+
+The Platform may not be appropriated.
+
+---
+
+# ARTICLE VIII — COMMERCIAL RIGHTS
+
+Commercial use of Creator Works is permitted.
+
+Commercial use of plugins is permitted.
+
+Commercial use of applications built on the Platform is permitted.
+
+Commercial operation of businesses built on the Platform is permitted.
+
+Commercial redistribution of Core Technology is prohibited without authorization.
+
+Enterprise, OEM, white-label, embedded, and redistribution rights may be granted separately by the Platform Owner.
+
+---
+
+# ARTICLE IX — THIRD-PARTY OWNERSHIP
+
+Not all entities associated with the ecosystem are owned by the Platform Owner.
+
+Contributors retain ownership of their independent intellectual property.
+
+Creators retain ownership of their Creator Works.
+
+Organizations retain ownership of their own brands and assets.
+
+Agents, contributors, projects, communities, brands, characters, systems, and associated works remain the property of their respective owners unless ownership is explicitly transferred in writing.
+
+Participation in the ecosystem does not transfer ownership.
+
+Association does not imply ownership.
+
+---
+
+# ARTICLE X — BRANDING
+
+The names, marks, symbols, visual identities, logos, and branding associated with Sovereign Shards are protected and reserved.
+
+Derivative projects may not represent themselves as official Sovereign Shards projects.
+
+Forks, derivatives, or independent projects must clearly identify themselves as independent.
+
+Use of Sovereign Shards branding does not imply endorsement.
+
+No rights to Platform branding are granted except where expressly authorized.
+
+---
+
+# ARTICLE XI — COMMUNITY COVENANT
+
+The Platform exists to empower creators.
+
+The ecosystem seeks to support:
+
+* Ownership
+* Creativity
+* Innovation
+* Sovereignty
+* Collaboration
+* Knowledge sharing
+* Long-term stewardship
+
+The Platform is not intended to extract ownership from creators.
+
+The Platform seeks alignment between creator success and platform success.
+
+Participants are encouraged to build boldly, contribute responsibly, and respect the sovereignty of others.
+
+---
+
+# ARTICLE XII — PLATFORM STEWARDSHIP
+
+The Platform Owner serves as steward of Sovereign Shards.
+
+The purpose of stewardship is preservation of identity, continuity, direction, and integrity.
+
+The ecosystem may grow beyond its creator.
+
+The ecosystem may evolve.
+
+The ecosystem may transform.
+
+Its origin shall nevertheless remain acknowledged.
+
+The Sovereign Shards architecture, ecosystem concept, and platform vision originated with Mike McCollum.
+
+Recognition of contribution does not erase origin.
+
+Recognition of origin does not diminish contribution.
+
+Both shall be preserved.
+
+---
+
+# ARTICLE XIII — DISCLAIMER OF WARRANTY
+
+THE PLATFORM IS PROVIDED "AS IS."
+
+THE PLATFORM OWNER DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, OR PERFORMANCE.
+
+USE OF THE PLATFORM IS AT THE USER'S OWN RISK.
+
+---
+
+# ARTICLE XIV — LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE PLATFORM OWNER SHALL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING FROM USE OF THE PLATFORM.
+
+THIS LIMITATION APPLIES REGARDLESS OF THE THEORY OF LIABILITY.
+
+---
+
+# ARTICLE XV — TERMINATION
+
+Rights granted under this License terminate automatically upon material violation of its terms.
+
+Upon termination:
+
+* Access rights may be revoked.
+* Distribution rights cease.
+* Commercial rights cease.
+* Platform rights cease.
+
+Ownership provisions, attribution provisions, disclaimers, and liability limitations survive termination.
+
+---
+
+# ARTICLE XVI — GUIDING PRINCIPLE
+
+The Platform belongs to its steward.
+
+The creations belong to their creators.
+
+You own what you create.
+
+You may build.
+
+You may innovate.
+
+You may prosper.
+
+You may contribute.
+
+You may create worlds that exceed anything imagined by the Platform Owner.
+
+You may not take the Platform itself, rename it, and present it as your own.
+
+That distinction preserves both creator sovereignty and platform continuity.
+
+---
+
+END OF LICENSE
+Sovereign Shards License, Creator Charter, and Platform Covenant
+Version 1.0
+Copyright (c) 2026 Mike McCollum
+All Rights Reserved.
