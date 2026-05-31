@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 import { useAuthActions } from "@convex-dev/auth/react";
 import { FlaskConical, Loader2 } from "lucide-react";
 import { useState } from "react";

@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 import * as ContextMenuPrimitive from "@radix-ui/react-context-menu";
 import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react";
 import type * as React from "react";

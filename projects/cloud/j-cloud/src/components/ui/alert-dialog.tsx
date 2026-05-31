@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import type * as React from "react";
 import { buttonVariants } from "@/components/ui/button";

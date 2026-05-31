@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";

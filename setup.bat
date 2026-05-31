@@ -1,3 +1,8 @@
+@REM Copyright (c) 2026 Mike McCollum
+@REM
+@REM Licensed under the Sovereign Shards License.
+@REM See LICENSE.md for details.
+
 @echo off
 setlocal enabledelayedexpansion
 cd /d "%~dp0"

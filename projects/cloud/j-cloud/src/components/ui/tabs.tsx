@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import type * as React from "react";
 

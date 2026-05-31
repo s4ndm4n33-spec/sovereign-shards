@@ -1,4 +1,8 @@
-# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
+# Copyright (c) 2026 Mike McCollum
+#
+# Licensed under the Sovereign Shards License.
+# See LICENSE.md for details.
+
 """Chat loop for the Sovereign Shard developer agent.
 
 Preserves the original version-1.0 interactive loop and streaming.
@@ -25,7 +29,7 @@ from app.agent.context import (
     preflight_trim,
     compress_step_result,
 )
-from app.agent.contracts import AgentTask, ToolCall
+from app.agent.contracts import AgentStep, AgentTask, ToolCall
 from app.agent.executor import (
     build_step_prompt,
     execute_tool_call,
@@ -52,6 +56,7 @@ from app.file_tools import list_dir, read_file, write_file
 from app.local_server import LocalLlamaServer
 from app.runtime_log import RuntimeJsonLogger
 from app.session import SessionLogger
+from app.system_tools import get_system_snapshot
 from app.router import route as fast_route
 from app.llm import stream_reply as _stream_reply
 from app.action import extract_action as _extract_action, strip_identity_preamble as _strip_identity_preamble, truncate_tool_output as _truncate_tool_output, MAX_TOOL_OUTPUT_LINES
@@ -190,7 +195,6 @@ def _run_turn(
     # Bounded tool loop with circuit breaker
     breaker = CircuitBreaker(tool_budget=tool_budget)
     action_retries = 0
-    last_tool_error: str | None = None
     turn_tool_calls = 0  # per-turn counter (not cumulative across turns)
     turn_tool_log: list[str] = []  # breadcrumb trail of completed calls
     turn_tool_digests: list[str] = []  # brief output summaries per call
@@ -292,7 +296,6 @@ def _run_turn(
         rlog.event("tool_call", tool=tool_name, hop=hop)
         tool_result = _execute_tool(action, registry)
         is_error = tool_result.startswith("[TOOL ERROR]")
-        last_tool_error = tool_result if is_error else None
         breaker.record_turn(tool=tool_name, args=tool_args, output=tool_result, is_error=is_error)
         DEDUP_CACHE[current_call_sig] = tool_result
         time.sleep(PROCESS_PAUSE_SECONDS)

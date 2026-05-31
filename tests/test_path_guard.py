@@ -1,4 +1,8 @@
-# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
+# Copyright (c) 2026 Mike McCollum
+#
+# Licensed under the Sovereign Shards License.
+# See LICENSE.md for details.
+
 """Path-sanity guards reject prompt-as-path inputs at both enforcement points.
 
 Regression test for the failure where the agent passed an entire task

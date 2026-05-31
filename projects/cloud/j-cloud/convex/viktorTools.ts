@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 /**
  * Viktor Tools - Call any Viktor SDK function from your Convex app.
  *

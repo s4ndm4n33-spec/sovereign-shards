@@ -1,4 +1,8 @@
-# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
+# Copyright (c) 2026 Mike McCollum
+#
+# Licensed under the Sovereign Shards License.
+# See LICENSE.md for details.
+
 """Project indexer: build a lightweight file tree + symbol map.
 
 Scans the project directory and caches results to a JSON file.
