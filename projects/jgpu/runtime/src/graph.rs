@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 use std::collections::{HashMap, VecDeque};
 
 use tensor::Tensor;
@@ -79,7 +84,10 @@ impl Graph {
         for node in &self.nodes {
             for &input in &node.inputs {
                 if input >= n {
-                    return Err(format!("node {} references unknown input {}", node.id, input));
+                    return Err(format!(
+                        "node {} references unknown input {}",
+                        node.id, input
+                    ));
                 }
                 indegree[node.id] += 1;
                 edges[input].push(node.id);
@@ -140,8 +148,22 @@ mod tests {
     #[test]
     fn execute_chain_matmul_add() {
         let mut g = Graph::new();
-        let a = g.add_node(Op::Input(Tensor::new(vec![2, 2], DType::F32, vec![1.0, 2.0, 3.0, 4.0])), vec![]);
-        let b = g.add_node(Op::Input(Tensor::new(vec![2, 2], DType::F32, vec![5.0, 6.0, 7.0, 8.0])), vec![]);
+        let a = g.add_node(
+            Op::Input(Tensor::new(
+                vec![2, 2],
+                DType::F32,
+                vec![1.0, 2.0, 3.0, 4.0],
+            )),
+            vec![],
+        );
+        let b = g.add_node(
+            Op::Input(Tensor::new(
+                vec![2, 2],
+                DType::F32,
+                vec![5.0, 6.0, 7.0, 8.0],
+            )),
+            vec![],
+        );
         let mm = g.add_node(Op::MatMul, vec![a, b]);
         let bias = g.add_node(Op::Input(Tensor::ones(&[2, 2])), vec![]);
         let out_id = g.add_node(Op::Add, vec![mm, bias]);
@@ -155,8 +177,16 @@ mod tests {
     fn cycle_detection_works() {
         let g = Graph {
             nodes: vec![
-                Node { id: 0, op: Op::Input(Tensor::ones(&[1])), inputs: vec![1] },
-                Node { id: 1, op: Op::Input(Tensor::ones(&[1])), inputs: vec![0] },
+                Node {
+                    id: 0,
+                    op: Op::Input(Tensor::ones(&[1])),
+                    inputs: vec![1],
+                },
+                Node {
+                    id: 1,
+                    op: Op::Input(Tensor::ones(&[1])),
+                    inputs: vec![0],
+                },
             ],
         };
         let err = g.topological_order().unwrap_err();

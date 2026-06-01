@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 pub struct BackendInfo {
     pub name: &'static str,
     pub version: &'static str,

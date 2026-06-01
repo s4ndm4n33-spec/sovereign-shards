@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 import { spawn } from "node:child_process";
 
 const TIMEOUT_MS = 5000;

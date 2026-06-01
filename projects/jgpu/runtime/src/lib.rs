@@ -1,12 +1,21 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 pub mod graph;
 
-use crossbeam_channel::{unbounded, Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender, unbounded};
 use std::thread;
 use tensor::Tensor;
 
 #[derive(Debug)]
 pub enum Command {
-    MatMul { a: Tensor, b: Tensor, resp: Sender<Tensor> },
+    MatMul {
+        a: Tensor,
+        b: Tensor,
+        resp: Sender<Tensor>,
+    },
     Shutdown,
 }
 
@@ -19,12 +28,21 @@ impl Runtime {
     pub fn start() -> Self {
         let (tx, rx) = unbounded::<Command>();
         let worker = thread::spawn(move || executor_loop(rx));
-        Self { tx, worker: Some(worker) }
+        Self {
+            tx,
+            worker: Some(worker),
+        }
     }
 
     pub fn submit_matmul(&self, a: Tensor, b: Tensor) -> Receiver<Tensor> {
         let (resp_tx, resp_rx) = unbounded();
-        self.tx.send(Command::MatMul { a, b, resp: resp_tx }).expect("runtime worker available");
+        self.tx
+            .send(Command::MatMul {
+                a,
+                b,
+                resp: resp_tx,
+            })
+            .expect("runtime worker available");
         resp_rx
     }
 }

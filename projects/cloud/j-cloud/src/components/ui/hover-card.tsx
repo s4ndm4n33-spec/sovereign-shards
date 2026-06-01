@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 import * as HoverCardPrimitive from "@radix-ui/react-hover-card";
 import type * as React from "react";
 

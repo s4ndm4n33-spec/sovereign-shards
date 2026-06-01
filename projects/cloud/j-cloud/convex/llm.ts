@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 /**
  * J Cloud — LLM Chat Action
  * Text-based ACTION dispatch — mirrors the Shard's action.py + tool_exec.py pattern.

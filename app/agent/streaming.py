@@ -1,4 +1,8 @@
-# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
+# Copyright (c) 2026 Mike McCollum
+#
+# Licensed under the Sovereign Shards License.
+# See LICENSE.md for details.
+
 """Streaming tool output — real-time stdout/stderr during long operations.
 
 Instead of waiting for a subprocess to finish, this module streams

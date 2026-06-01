@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 /**
  * J Cloud — Full Tool Execution Engine
  * Mirrors every tool from the Sovereign Shards repo, adapted for cloud execution.
@@ -678,7 +683,7 @@ export async function executeScaffold(
   token?: string
 ): Promise<string> {
   if (!token) return "❌ No GitHub token configured.";
-  const initContent = `# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.\n"""${name} package."""\n`;
+  const initContent = `# Copyright (c) 2026 Mike McCollum\n#\n# Licensed under the Sovereign Shards License.\n# See LICENSE.md for details.\n"""${name} package."""\n`;
   return await executeGithubWriteFile(
     owner, repo, `${name}/__init__.py`, initContent,
     `scaffold: create ${name} package`, branch, token
@@ -872,7 +877,10 @@ export async function executeDispatchWorkflow(
 // Mirrors app/agent/tool_forge.py + app/agent/tool_researcher.py
 
 const TOOL_TEMPLATE = `\
-# Copyright (c) 2024-2026 Reed Richards (s4ndm4n33). Licensed under BSL 1.1.
+# Copyright (c) 2026 Mike McCollum
+#
+# Licensed under the Sovereign Shards License.
+# See LICENSE.md for details.
 """Auto-generated tool: {PURPOSE}
 
 Built by J's tool forge.  Follows the standard tool contract:

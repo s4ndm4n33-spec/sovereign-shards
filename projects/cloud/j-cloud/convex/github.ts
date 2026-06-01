@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { action, mutation, query, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";

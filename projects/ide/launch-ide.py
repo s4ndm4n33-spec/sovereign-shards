@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Mike McCollum
+#
+# Licensed under the Sovereign Shards License.
+# See LICENSE.md for details.
+
 """
 Sovereign IDE v2 - VS Code Clone
 Quick launch script with auto-browser opening
@@ -18,22 +23,22 @@ def launch_ide():
 ║  git integration, and command palette foundation              ║
 ╚════════════════════════════════════════════════════════════════╝
     """)
-    
+
     # Start server
     print("[*] Starting Sovereign IDE server...")
     print("[*] To stop: Press Ctrl+C\n")
-    
+
     # Auto-open browser after delay
     def open_browser():
         time.sleep(2)
         url = "http://localhost:8000"
         print(f"[+] Opening browser: {url}")
         webbrowser.open(url)
-    
+
     import threading
     browser_thread = threading.Thread(target=open_browser, daemon=True)
     browser_thread.start()
-    
+
     # Run server
     os.system("python server.py")
 

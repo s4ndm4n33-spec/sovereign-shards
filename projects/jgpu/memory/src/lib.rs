@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,7 +30,15 @@ impl Allocator {
     pub fn allocate(&mut self, bytes: usize, temp: Temperature) -> u64 {
         let id = self.next_id;
         self.next_id += 1;
-        self.table.insert(id, Allocation { id, bytes, ref_count: 1, temp });
+        self.table.insert(
+            id,
+            Allocation {
+                id,
+                bytes,
+                ref_count: 1,
+                temp,
+            },
+        );
         id
     }
 

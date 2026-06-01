@@ -1,3 +1,8 @@
+// Copyright (c) 2026 Mike McCollum
+//
+// Licensed under the Sovereign Shards License.
+// See LICENSE.md for details.
+
 use rand::Rng;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,12 +45,21 @@ impl Tensor {
         let expected: usize = shape.iter().product();
         assert_eq!(expected, data.len(), "data length must match shape product");
         let strides = compute_strides(&shape);
-        Self { shape, strides, dtype, data }
+        Self {
+            shape,
+            strides,
+            dtype,
+            data,
+        }
     }
 
     pub fn reshape(&self, shape: &[usize]) -> Self {
         let expected: usize = shape.iter().product();
-        assert_eq!(expected, self.data.len(), "reshape must preserve element count");
+        assert_eq!(
+            expected,
+            self.data.len(),
+            "reshape must preserve element count"
+        );
         Self::new(shape.to_vec(), self.dtype, self.data.clone())
     }
 
@@ -89,7 +103,9 @@ impl Tensor {
 }
 
 fn compute_strides(shape: &[usize]) -> Vec<usize> {
-    if shape.is_empty() { return vec![]; }
+    if shape.is_empty() {
+        return vec![];
+    }
     let mut strides = vec![0; shape.len()];
     let mut stride = 1;
     for i in (0..shape.len()).rev() {
