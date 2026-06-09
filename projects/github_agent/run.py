@@ -110,11 +110,31 @@ def _build_registry() -> ToolRegistry:
 
 
 def run_agent_loop(messages: list[dict[str, str]], registry: ToolRegistry, model: str, budget: int) -> str:
+    """Execute the agent loop with robust error handling.
+    
+    - Catches LLM failures and tool execution errors
+    - Never raises; always returns a response
+    - Logs errors to stderr for CI visibility
+    """
     final_response = ""
     for step in range(budget):
-        reply = github_chat(model, messages)
-        cleaned = strip_identity_preamble(reply)
-        action = extract_action(cleaned)
+        try:
+            reply = github_chat(model, messages)
+        except Exception as exc:
+            msg = f"[J ERROR] LLM call failed at step {step}: {type(exc).__name__}: {exc}"
+            print(msg, file=sys.stderr)
+            final_response = "[J ERROR] Could not connect to the LLM. Please check the workflow logs."
+            break
+
+        try:
+            cleaned = strip_identity_preamble(reply)
+            action = extract_action(cleaned)
+        except Exception as exc:
+            msg = f"[J ERROR] Failed to parse LLM reply at step {step}: {type(exc).__name__}: {exc}"
+            print(msg, file=sys.stderr)
+            final_response = cleaned or "[J ERROR] Invalid response format."
+            break
+
         if not action:
             final_response = cleaned
             break
@@ -124,7 +144,13 @@ def run_agent_loop(messages: list[dict[str, str]], registry: ToolRegistry, model
         if not isinstance(tool_args, list):
             tool_args = [tool_args]
 
-        tool_result = registry.execute(tool_name, tool_args)
+        try:
+            tool_result = registry.execute(tool_name, tool_args)
+        except Exception as exc:
+            msg = f"[J ERROR] Tool '{tool_name}' failed at step {step}: {type(exc).__name__}: {exc}"
+            print(msg, file=sys.stderr)
+            tool_result = f"[TOOL ERROR] {type(exc).__name__}: {str(exc)[:200]}"
+
         tool_result = truncate_tool_output(tool_result)
 
         messages.append({"role": "assistant", "content": cleaned})
@@ -149,36 +175,50 @@ def write_response(response: str) -> None:
 
 
 def main() -> int:
-    event = load_event()
-    repo = event.get("repository", {}).get("full_name", "unknown/repo")
-    registry = _build_registry()
-    system_prompt = build_system_prompt(repo, registry)
+    try:
+        event = load_event()
+    except Exception as exc:
+        msg = f"[J ERROR] Failed to load GitHub event: {type(exc).__name__}: {exc}"
+        print(msg, file=sys.stderr)
+        write_response("[J ERROR] Could not read GitHub event. Check workflow configuration.")
+        return 1
 
-    messages = [{"role": "system", "content": system_prompt}]
-    model = os.getenv("J_MODEL", "gpt-4o-mini")
-    budget = int(os.getenv("J_TOOL_BUDGET", "3"))
+    try:
+        repo = event.get("repository", {}).get("full_name", "unknown/repo")
+        registry = _build_registry()
+        system_prompt = build_system_prompt(repo, registry)
 
-    if event.get("issue") and event.get("comment"):
-        if not _is_authorized_actor(event):
-            write_response("[J] Only repository collaborators may issue /j commands.")
+        messages = [{"role": "system", "content": system_prompt}]
+        model = os.getenv("J_MODEL", "gpt-4o-mini")
+        budget = int(os.getenv("J_TOOL_BUDGET", "3"))
+
+        if event.get("issue") and event.get("comment"):
+            if not _is_authorized_actor(event):
+                write_response("[J] Only repository collaborators may issue /j commands.")
+                return 0
+            command = parse_comment_command(str(event.get("comment", {}).get("body", "")))
+            if not command:
+                write_response("[J ERROR] No /j command found in the comment.")
+                return 0
+            messages.append({"role": "user", "content": build_issue_prompt(command, event)})
+        elif event.get("pull_request"):
+            if not _is_authorized_pr(event):
+                write_response("[J] Pull request auto-review is limited to repository collaborators.")
+                return 0
+            messages.append({"role": "user", "content": build_pull_request_prompt(event)})
+        else:
+            write_response("[J ERROR] Unsupported GitHub event.")
             return 0
-        command = parse_comment_command(str(event.get("comment", {}).get("body", "")))
-        if not command:
-            write_response("[J ERROR] No /j command found in the comment.")
-            return 0
-        messages.append({"role": "user", "content": build_issue_prompt(command, event)})
-    elif event.get("pull_request"):
-        if not _is_authorized_pr(event):
-            write_response("[J] Pull request auto-review is limited to repository collaborators.")
-            return 0
-        messages.append({"role": "user", "content": build_pull_request_prompt(event)})
-    else:
-        write_response("[J ERROR] Unsupported GitHub event.")
+
+        response = run_agent_loop(messages, registry, model, budget)
+        write_response(response)
         return 0
 
-    response = run_agent_loop(messages, registry, model, budget)
-    write_response(response)
-    return 0
+    except Exception as exc:
+        msg = f"[J ERROR] Unhandled exception in main(): {type(exc).__name__}: {exc}"
+        print(msg, file=sys.stderr)
+        write_response("[J ERROR] Unexpected error. Check the workflow logs for details.")
+        return 1
 
 
 if __name__ == "__main__":
