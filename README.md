@@ -27,7 +27,7 @@
 
 <p align="center">
   <strong>A fully local AI developer agent that runs from a USB stick.</strong><br/>
-  No cloud. No API keys. No internet. Two dependencies. Plug in and build.
+  Cloud-based. No API keys. No internet. Two dependencies. Plug in and build.
 </p>
 
 <p align="center">
