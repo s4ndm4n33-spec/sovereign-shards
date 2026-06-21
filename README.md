@@ -124,8 +124,9 @@ This repository now also tracks **JGPU**: a distributed, software-defined tensor
 
 - Program contract: [`AGENTS.md`](AGENTS.md)
 - Full phased plan: [`PLANS.md`](PLANS.md)
+- Foundational design record: [`projects/jgpu/RFC 001`](projects/jgpu/RFC%20001)
 
-JGPU principles are strict: correctness first, profiling before optimization, and architecture changes must update `README.md`, `PLANS.md`, and `AGENTS.md` together.
+JGPU principles are strict: correctness first, profiling before optimization, CPU-defined correctness, immutable graph-oriented execution, backend-neutral runtime contracts, and architecture changes must update `README.md`, `PLANS.md`, and `AGENTS.md` together.
 
 ---
 
