@@ -36,6 +36,10 @@ The authoritative execution roadmap is documented in `PLANS.md` (Phase 0 through
 - Distributed tensor execution
 - Performance engineering and profiling discipline
 
+
+### JGPU execution architecture rule
+Runtime and graph execution must depend on backend-neutral contracts, not directly on optimized kernels. The backend registry must preserve slots for ten backend classes (CPU, SIMD CPU, CUDA, Metal, Vulkan, ROCm, WebGPU, Remote, Distributed, Mock), with only real implementations registered. Unsupported backends should fail with structured errors rather than placeholder execution.
+
 ### Engineering style
 - Prefer small, composable modules with explicit boundaries.
 - Keep interfaces stable and test-first for critical math and scheduling components.
