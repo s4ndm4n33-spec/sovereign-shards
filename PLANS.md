@@ -100,6 +100,15 @@ Rule: never optimize before profiling.
 - Add async futures for non-blocking launches
 - Validate synchronization and deadlock safety
 
+
+### Phase 3A — Backend-Neutral Execution Architecture
+- Define a stable `ExecutionBackend` contract for tensor operations
+- Add a backend registry with ten backend slots: CPU, SIMD CPU, CUDA, Metal, Vulkan, ROCm, WebGPU, Remote, Distributed, Mock
+- Keep only the CPU backend executable until non-CPU implementations are real deliverables
+- Route async runtime commands and graph nodes through backend selection instead of direct kernel calls
+- Return structured errors for unregistered or unsupported backends
+- Emit profiling logs at backend operation boundaries before performance optimization
+
 ### Phase 4 — Virtual VRAM
 - Build allocator with tensor IDs and refcounts
 - Implement HOT/WARM/COLD classes
