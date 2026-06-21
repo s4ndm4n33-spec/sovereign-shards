@@ -1,0 +1,220 @@
+RFC-0001
+The JGPU Philosophy
+
+This is what I'd commit as the first design document.
+
+JGPU Is Not a GPU Library
+
+JGPU is a deterministic compute runtime.
+
+Its purpose is to execute computational workloads on the most appropriate compute resource while presenting a single, stable programming model to higher layers.
+
+Applications should never know whether execution occurs on a CPU, GPU, NPU, remote cluster, or future accelerator.
+
+Hardware is an implementation detail.
+
+First Principle
+
+Execution is independent of hardware.
+
+Execution graphs describe what should happen.
+
+Backends decide how it happens.
+
+Second Principle
+
+Everything is a graph.
+
+Not
+
+MatMul()
+
+ReLU()
+
+Add()
+
+Instead
+
+ExecutionGraph
+
+Operations become nodes.
+
+Dependencies become edges.
+
+Execution becomes scheduling.
+
+Third Principle
+
+Memory is explicit.
+
+Tensors never own bytes.
+
+Storage owns bytes.
+
+Tensors describe data.
+
+Storage manages locality.
+
+Fourth Principle
+
+Backends are replaceable.
+
+Every backend must satisfy the exact same interface.
+
+No backend may expose functionality unavailable to every other backend without first extending the abstraction.
+
+No special cases.
+
+Fifth Principle
+
+CPU is the specification.
+
+This is a hill I'd die on.
+
+CUDA is not the reference implementation.
+
+Metal is not the reference implementation.
+
+The CPU backend defines correctness.
+
+Everything else is optimization.
+
+Sixth Principle
+
+Optimization is optional. Correctness is mandatory.
+
+Never sacrifice deterministic execution for benchmark numbers.
+
+Performance follows architecture.
+
+Architecture does not follow performance.
+
+Seventh Principle
+
+The runtime owns orchestration.
+
+Runtime responsibilities
+
+graph construction
+dependency analysis
+scheduling
+synchronization
+memory lifetime
+execution planning
+
+Backend responsibilities
+
+allocation
+transfers
+kernel dispatch
+synchronization primitives
+device capabilities
+
+Nothing else.
+
+Eighth Principle
+
+No backend leakage.
+
+If runtime code contains
+
+if backend == CUDA
+
+the architecture has failed.
+
+Ninth Principle
+
+Graphs are immutable.
+
+Planning creates a graph.
+
+Optimization transforms graphs.
+
+Execution consumes graphs.
+
+Execution never mutates graphs.
+
+This gives deterministic replay.
+
+Tenth Principle
+
+Everything produces telemetry.
+
+Every execution should produce
+
+ExecutionReport
+
+elapsed
+
+backend
+
+memory used
+
+copies
+
+kernel launches
+
+cache hits
+
+errors
+
+This is one of those features that's easy to postpone and difficult to retrofit.
+
+The Long-Term Stack
+
+Here's the architectural picture I now have in my head:
+
+                    Blue-J Genesis
+                           │
+                 IDE / Tutor / Agent
+                           │
+                           ▼
+                     J Language API
+                           │
+                           ▼
+                  Execution Planner
+                           │
+                           ▼
+                    JGPU Runtime
+                           │
+          ┌────────────────┼─────────────────┐
+          ▼                ▼                 ▼
+      CPU Backend     GPU Backend      Remote Backend
+          │                │                 │
+          └────────────────┼─────────────────┘
+                           ▼
+                     Physical Hardware
+
+Notice something important.
+
+The IDE is not coupled to CUDA.
+
+The language is not coupled to WebGPU.
+
+The planner is not coupled to Vulkan.
+
+Everything terminates at JGPU.
+
+That makes JGPU the stable foundation beneath the rest of the ecosystem.
+
+One thing I'd add that we haven't discussed
+
+I think JGPU should expose three public APIs, each at a different level of abstraction:
+
+Tensor API — for users who just want to perform numerical operations.
+Graph API — for building execution graphs explicitly, enabling optimization and scheduling.
+Runtime API — for advanced integrations like J, Blue-J Genesis, or other languages and tools that want fine-grained control over planning and execution.
+
+Those three layers let beginners stay productive while giving advanced systems access to the machinery underneath.
+
+The project I'd like us to build
+
+I don't want JGPU to become "another tensor library."
+
+I want it to become something people can build on top of.
+
+When someone eventually says, "I'm writing a new language/runtime—what should I target?" I'd like the answer to be:
+
+Target JGPU. It already knows how to execute your compute graph on whatever hardware is available.
+
+That's a much bigger ambition than a GPU wrapper, but it's also consistent with the vision you've been describing for the rest of Blue-J Genesis. If we keep the architecture disciplined from this point onward, I think it's a realistic direction rather than just an aspirational one.
