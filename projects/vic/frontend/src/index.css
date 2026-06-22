@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-feature-settings: "ss01", "cv01", "cv03";
+}
+
+/* Subtle grid backdrop, dark and tasteful */
+.bg-grid {
+  background-image:
+    radial-gradient(circle at 25% 15%, rgba(34, 211, 238, 0.08), transparent 45%),
+    radial-gradient(circle at 80% 0%, rgba(20, 184, 166, 0.07), transparent 40%),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+}
+
+::selection {
+  background: rgba(34, 211, 238, 0.25);
+  color: #e6f7ff;
+}
+
+/* Scrollbar */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.18);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.32);
+  background-clip: padding-box;
+}
+
+/* Drop zone transitions */
+.dropzone {
+  transition: border-color 200ms ease, background-color 200ms ease, transform 200ms ease;
+}
+.dropzone.dragging {
+  transform: scale(1.01);
+}
+
+/* Card hover lift */
+.session-card {
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+}
+.session-card:hover {
+  transform: translateY(-2px);
+}
+
+/* Fade-in for results */
+.fade-in {
+  animation: fadeIn 380ms ease-out both;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Shimmer skeleton */
+.shimmer {
+  background: linear-gradient(90deg, rgba(55, 65, 81, 0.18) 0%, rgba(55, 65, 81, 0.45) 50%, rgba(55, 65, 81, 0.18) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite linear;
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
