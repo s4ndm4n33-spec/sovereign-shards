@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VIC Entity Schema",
+  "type": "object",
+  "required": ["entity_id", "type", "surface_forms"],
+  "properties": {
+    "entity_id": {
+      "type": "string",
+      "description": "Deterministic normalized identifier for the entity (lowercase, whitespace-collapsed, punctuation-stripped)."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["PERSON", "SYSTEM", "EVENT", "OBJECT", "UNKNOWN"],
+      "description": "Strict entity classification. No soft labels allowed."
+    },
+    "surface_forms": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "All observed textual variants of the entity in source material."
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Optional deterministic annotations (no inferred semantics)."
+    }
+  },
+  "additionalProperties": false
+}
