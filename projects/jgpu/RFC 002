@@ -1,0 +1,415 @@
+RFC-002
+JGPU Execution & Device Abstraction
+
+Status: Draft
+
+Author: Mike McCollum
+
+Requires: RFC-001
+
+Version: 0.1
+
+Abstract
+
+This RFC defines the core execution architecture of JGPU.
+
+JGPU is not a graphics API.
+
+It is a compute execution platform that exposes a single programming model while allowing execution across multiple hardware and software implementations.
+
+Programs written against JGPU must never depend on CUDA, Vulkan, Metal, DirectX, OpenCL, or any vendor-specific runtime.
+
+Instead they target the JGPU Execution Model.
+
+Hardware backends are implementation details.
+
+Motivation
+
+Current GPU programming is fragmented.
+
+Different vendors expose different APIs.
+
+Different operating systems expose different drivers.
+
+Applications become tightly coupled to implementation details rather than computation itself.
+
+JGPU exists to invert that relationship.
+
+Applications target computation.
+
+JGPU selects execution.
+
+Design Goals
+
+The execution model must satisfy the following properties.
+
+Portable
+Deterministic
+Backend agnostic
+Runtime selectable
+Thread safe
+Serializable
+Inspectable
+Recoverable
+
+The API should look identical regardless of execution backend.
+
+Core Architecture
+
+The execution pipeline consists of five layers.
+
+Application
+
+↓
+
+JGPU API
+
+↓
+
+Command Encoder
+
+↓
+
+Execution Scheduler
+
+↓
+
+Backend Driver
+
+↓
+
+Hardware
+
+Only the bottom layer is backend-specific.
+
+Everything above remains identical.
+
+Device Model
+
+A Device represents an execution target.
+
+Device
+
+A Device may represent
+
+CUDA GPU
+Vulkan Compute Queue
+Metal Device
+DirectX Compute
+CPU Simulator
+Software Raster
+Remote Cluster
+
+The application cannot distinguish between these through API behavior.
+
+Capabilities are queried explicitly.
+
+Queue Model
+
+Each Device owns one or more execution queues.
+
+Device
+
+ ├── Compute Queue
+
+ ├── Transfer Queue
+
+ └── Async Queue
+
+Queues execute submitted command buffers.
+
+Queue ordering is guaranteed.
+
+Synchronization is explicit.
+
+Command Buffers
+
+Applications never execute kernels directly.
+
+Instead they build immutable command buffers.
+
+Begin
+
+↓
+
+Dispatch
+
+↓
+
+Copy
+
+↓
+
+Barrier
+
+↓
+
+Dispatch
+
+↓
+
+End
+
+Once finalized, command buffers cannot change.
+
+This enables:
+
+replay
+caching
+serialization
+debugging
+deterministic execution
+Kernel Model
+
+A Kernel is immutable executable compute logic.
+
+Kernel
+
++
+
+Parameters
+
++
+
+Resources
+
+↓
+
+Dispatch
+
+Kernels contain no runtime state.
+
+State belongs to resources.
+
+Resource Model
+
+Resources are independent objects.
+
+Examples include
+
+Buffers
+
+Images
+
+Textures
+
+Acceleration Structures
+
+Constants
+
+Temporary Memory
+
+Resources are reference counted.
+
+Lifetime is explicit.
+
+Memory Ownership
+
+Every allocation belongs to exactly one Device.
+
+Device
+
+↓
+
+Allocator
+
+↓
+
+Memory
+
+↓
+
+Buffer
+
+Cross-device copies require explicit transfer commands.
+
+Implicit migration is prohibited.
+
+Scheduler
+
+The Scheduler owns execution ordering.
+
+Responsibilities include
+
+Queue balancing
+
+Dependency resolution
+
+Resource hazards
+
+Execution priority
+
+Synchronization
+
+Backend dispatch
+
+Applications never interact with backend threads directly.
+
+Synchronization
+
+Synchronization primitives include
+
+Fence
+
+Semaphore
+
+Barrier
+
+Event
+
+Synchronization is explicit.
+
+Hidden synchronization is forbidden.
+
+Backend Interface
+
+Every backend implements the same interface.
+
+initialize()
+
+shutdown()
+
+create_device()
+
+compile_kernel()
+
+submit()
+
+wait()
+
+copy()
+
+destroy()
+
+No backend may expose additional public API.
+
+Backend-specific extensions belong behind capability queries.
+
+Capability System
+
+Devices expose supported capabilities.
+
+Example
+
+supports_fp16
+
+supports_fp64
+
+supports_tensor
+
+supports_raytrace
+
+supports_shared_memory
+
+supports_atomic64
+
+Applications query capabilities.
+
+They never detect backend names.
+
+Software Backend
+
+A complete CPU backend is mandatory.
+
+Reasons include
+
+CI testing
+
+Debugging
+
+Deterministic execution
+
+Platforms without GPUs
+
+Education
+
+Reference implementation
+
+The CPU backend is considered a first-class implementation rather than a fallback.
+
+Error Handling
+
+Recoverable errors return Result types.
+
+Fatal backend failures invalidate the Device.
+
+Undefined behavior is prohibited.
+
+Debug Layer
+
+Every backend may expose optional debugging.
+
+The debug layer can
+
+Validate command buffers
+
+Check resource hazards
+
+Detect synchronization errors
+
+Measure timing
+
+Record execution traces
+
+The debug layer must never alter execution semantics.
+
+Future Compatibility
+
+This architecture intentionally supports future execution targets including
+
+Distributed compute
+
+Cloud execution
+
+Virtual devices
+
+Software simulation
+
+FPGA implementations
+
+Custom accelerators
+
+AI inference hardware
+
+without modifying application code.
+
+Non-Goals
+
+This RFC does not define
+
+Kernel language
+
+Shader compiler
+
+Memory allocator implementation
+
+Scheduling algorithms
+
+Backend implementations
+
+Performance guarantees
+
+Those are specified in future RFCs.
+
+Rationale
+
+The execution model is the stable foundation upon which the remainder of JGPU is built.
+
+Applications interact exclusively with abstract compute concepts.
+
+Backends translate those concepts into vendor-specific implementations.
+
+This inversion allows JGPU to evolve independently of graphics APIs and hardware vendors while maintaining a stable programming interface.
+
+Looking Ahead
+
+If RFC001 defined what JGPU is, RFC002 defines how JGPU thinks. The natural progression after this is:
+
+RFC-003 — Memory & Resource Model (allocators, buffers, views, mapping, residency)
+RFC-004 — Kernel ABI & Dispatch Semantics
+RFC-005 — Backend Plugin Interface
+RFC-006 — JGPU Intermediate Representation (JIR)
+RFC-007 — Software Reference Backend
+RFC-008 — Virtual Device & Distributed Execution
+
+That sequence would establish the architectural contract before any implementation details, giving the project a solid foundation to build against.
