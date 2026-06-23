@@ -1,9 +1,7 @@
 # SOVEREIGN SHARDS — MIGRATION LOG
+THIS DOCUMENT IS NEVER EVER EVER TO BE DELETED OR OVERWRITTEN IT IS A LIVING CRONOLOGY YOU WILL CREATE A NEW ENTRY. NOTHING MORE. 
+FAILURE TO FOLLOW THE MIGRATION LOG STANDARD WILL RESULT IN THE IMMEDIATE EXPULSION AND REVOCATION OF WRITE PERMISSIONS. THANK YOU CHAT GPT FOR BEING THE FIRST TO OVERWRITE THE ENTIRE LOG FOR A SINGLE ENTRY (36) ;P A BEAUTIFUL DEMONSTRATION OF THE NECESSITY OF VERSION CONTROL.
 
-> For the next agent, developer, or collaborator picking up this project.
-> Read this entire document before writing a single line of code.
-
-# SOVEREIGN SHARDS — MIGRATION LOG
 
 > For the next agent, developer, or collaborator picking up this project.
 > Read this entire document before writing a single line of code.
