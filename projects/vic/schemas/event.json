@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VIC Event Schema",
+  "type": "object",
+  "required": ["event_id", "action", "entities"],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Deterministic hash of source span (no randomness)."
+    },
+    "timestamp": {
+      "type": ["string", "null"],
+      "description": "ISO-8601 timestamp if explicitly present in source, otherwise null."
+    },
+    "action": {
+      "type": "string",
+      "description": "Verb/action extracted directly from source text (no inference)."
+    },
+    "entities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Referenced entity_ids involved in event"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Rule-derived certainty score only"
+    },
+    "source_span": {
+      "type": "string",
+      "description": "Exact substring from ingestion that produced this event"
+    }
+  },
+  "additionalProperties": false
+}
