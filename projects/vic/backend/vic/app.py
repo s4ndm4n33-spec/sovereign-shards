@@ -301,6 +301,7 @@ def create_app() -> Flask:
         limit = int(payload.get("limit", 5000))
         try:
             result = ingest_git(_store(), repo_path, repo_id=repo_id, limit=limit)
+            _invalidate_kg()
             return jsonify(result)
         except (FileNotFoundError, OSError) as exc:
             return jsonify({"error": str(exc)}), 400
@@ -314,6 +315,7 @@ def create_app() -> Flask:
             return jsonify({"error": "Missing 'path' or 'repository_id'"}), 400
         try:
             result = ingest_markdown(_store(), path, repo_id=repo_id)
+            _invalidate_kg()
             return jsonify(result)
         except (FileNotFoundError, OSError) as exc:
             return jsonify({"error": str(exc)}), 400
@@ -327,6 +329,7 @@ def create_app() -> Flask:
             return jsonify({"error": "Missing 'path' or 'repository_id'"}), 400
         try:
             result = ingest_structured_notes(_store(), path, repo_id=repo_id)
+            _invalidate_kg()
             return jsonify(result)
         except (FileNotFoundError, OSError, ValueError) as exc:
             return jsonify({"error": str(exc)}), 400
@@ -343,6 +346,80 @@ def create_app() -> Flask:
             return jsonify(result)
         except (FileNotFoundError, OSError, ValueError) as exc:
             return jsonify({"error": str(exc)}), 400
+
+    # ===================================================================
+    # V2 — Knowledge Graph, Biography, Evolution, Provenance
+    # ===================================================================
+
+    def _kg() -> "KnowledgeGraph":
+        from .knowledge_graph import KnowledgeGraph
+        if not hasattr(app, "_vic_kg_cache"):
+            app._vic_kg_cache = {}
+        repo = request.args.get("repository_id") if request else None
+        if repo not in app._vic_kg_cache:
+            app._vic_kg_cache[repo] = KnowledgeGraph(_store(), repository_id=repo)
+        return app._vic_kg_cache[repo]
+
+    def _invalidate_kg() -> None:
+        if hasattr(app, "_vic_kg_cache"):
+            app._vic_kg_cache.clear()
+
+    @app.route("/api/graph")
+    def graph():
+        repo_id = request.args.get("repository_id")
+        from .knowledge_graph import KnowledgeGraph
+        kg = KnowledgeGraph(_store(), repository_id=repo_id)
+        node_id = request.args.get("node_id")
+        if node_id:
+            neighbors = kg.neighbors(node_id)
+            incoming = kg.incoming(node_id)
+            node = kg.nodes.get(node_id, {})
+            return jsonify({"node": node, "neighbors": neighbors, "incoming": incoming, "graph_stats": kg.to_dict()})
+        return jsonify(kg.to_dict())
+
+    @app.route("/api/biography", methods=["POST"])
+    def biography():
+        from .biography import generate_biography
+        from .knowledge_graph import KnowledgeGraph
+        payload = request.get_json(silent=True) or {}
+        concept = (payload.get("concept") or "").strip()
+        if not concept:
+            return jsonify({"error": "Missing 'concept'"}), 400
+        repo_id = payload.get("repository_id")
+        kg = KnowledgeGraph(_store(), repository_id=repo_id)
+        return jsonify(generate_biography(kg, concept, repository_id=repo_id))
+
+    @app.route("/api/evolution", methods=["POST"])
+    def evolution():
+        from .evolution import run_evolution_query
+        from .knowledge_graph import KnowledgeGraph
+        payload = request.get_json(silent=True) or {}
+        query = (payload.get("query") or "all").strip()
+        repo_id = payload.get("repository_id")
+        kg = KnowledgeGraph(_store(), repository_id=repo_id)
+        return jsonify(run_evolution_query(kg, query, repository_id=repo_id))
+
+    @app.route("/api/provenance")
+    def provenance():
+        """Return the evidence chain for a specific event or claim."""
+        event_id = request.args.get("event_id")
+        if not event_id:
+            return jsonify({"error": "Missing 'event_id'"}), 400
+        from .knowledge_graph import KnowledgeGraph
+        repo_id = request.args.get("repository_id")
+        kg = KnowledgeGraph(_store(), repository_id=repo_id)
+        node = kg.nodes.get(event_id)
+        if not node:
+            return jsonify({"error": "Event not found"}), 404
+        incoming = kg.incoming(event_id)
+        outgoing = kg.neighbors(event_id)
+        # Build provenance chain: what evidence supports this event's relationships?
+        evidence: list[dict] = []
+        for n in incoming:
+            evidence.append({"event_id": n["id"], "title": n.get("title", ""), "relation": n.get("_edge_type", ""), "confidence": n.get("_confidence", 0), "rationale": n.get("_rationale", ""), "occurred_at": n.get("occurred_at"), "source_kind": n.get("source_kind", "")})
+        for n in outgoing:
+            evidence.append({"event_id": n["id"], "title": n.get("title", ""), "relation": n.get("_edge_type", ""), "confidence": n.get("_confidence", 0), "rationale": n.get("_rationale", ""), "occurred_at": n.get("occurred_at"), "source_kind": n.get("source_kind", "")})
+        return jsonify({"event": node, "evidence": evidence})
 
     return app
 

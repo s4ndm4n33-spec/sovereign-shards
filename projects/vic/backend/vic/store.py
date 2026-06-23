@@ -194,6 +194,22 @@ CREATE TABLE IF NOT EXISTS doc_meta (
     key TEXT PRIMARY KEY,
     value TEXT
 );
+
+CREATE TABLE IF NOT EXISTS edges (
+    id TEXT PRIMARY KEY,
+    source_node TEXT,
+    target_node TEXT,
+    relationship_type TEXT,
+    confidence REAL,
+    rationale TEXT,
+    provenance TEXT,
+    created_at TEXT,
+    UNIQUE(source_node, target_node, relationship_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_node);
+CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_node);
+CREATE INDEX IF NOT EXISTS idx_edges_type ON edges(relationship_type);
 """
 
 
@@ -234,6 +250,10 @@ class Store:
             if version < 1:
                 conn.execute("INSERT OR REPLACE INTO doc_meta(key,value) VALUES('schema_version','1')")
                 log.info("Initialised V.I.C. store at %s", self.path)
+            # V2 migration: edges table added to schema, no data migration needed
+            if version < 2:
+                conn.execute("INSERT OR REPLACE INTO doc_meta(key,value) VALUES('schema_version','2')")
+                log.info("Upgraded V.I.C. store to v2 (knowledge graph edges)")
 
     # -- helpers --------------------------------------------------------------
 
@@ -531,6 +551,8 @@ class Store:
             for table in ("repositories", "persons", "sessions", "decisions", "artifacts", "milestones", "events", "narratives"):
                 r = conn.execute(f"SELECT COUNT(*) AS c FROM {table}").fetchone()
                 counts[table] = r["c"]
+            r = conn.execute("SELECT COUNT(*) AS c FROM edges").fetchone()
+            counts["edges"] = r["c"]
             r = conn.execute("SELECT MIN(occurred_at) AS lo, MAX(occurred_at) AS hi FROM events WHERE occurred_at IS NOT NULL").fetchone()
             counts["earliest"] = r["lo"]
             counts["latest"] = r["hi"]
@@ -702,5 +724,42 @@ class Store:
     def reset(self) -> None:
         """Drop all data. Used by tests and `vic reset`."""
         with self.connect() as conn:
-            for table in ("repositories","persons","sessions","decisions","artifacts","milestones","events","events_fts","term_doc","doc_len","narratives"):
+            for table in ("repositories","persons","sessions","decisions","artifacts","milestones","events","events_fts","term_doc","doc_len","narratives","edges"):
                 conn.execute(f"DELETE FROM {table}")
+
+    # -- edges (V2: knowledge graph) ----------------------------------------
+
+    def upsert_edge(self, edge) -> str:
+        """Upsert a typed relationship edge."""
+        with self.connect() as conn:
+            conn.execute(
+                """INSERT INTO edges(id,source_node,target_node,relationship_type,confidence,rationale,provenance,created_at)
+                   VALUES (?,?,?,?,?,?,?,?)
+                   ON CONFLICT(id) DO UPDATE SET
+                     confidence=excluded.confidence, rationale=excluded.rationale,
+                     provenance=excluded.provenance""",
+                (edge.id, edge.source_node, edge.target_node, edge.relationship_type,
+                 edge.confidence, edge.rationale, self._j(edge.provenance), edge.created_at),
+            )
+        return edge.id
+
+    def list_edges(self, source_node: Optional[str] = None, target_node: Optional[str] = None,
+                   relationship_type: Optional[str] = None) -> list[dict]:
+        q = "SELECT * FROM edges WHERE 1=1"
+        args: list[Any] = []
+        if source_node:
+            q += " AND source_node=?"; args.append(source_node)
+        if target_node:
+            q += " AND target_node=?"; args.append(target_node)
+        if relationship_type:
+            q += " AND relationship_type=?"; args.append(relationship_type)
+        q += " ORDER BY created_at ASC"
+        with self.connect() as conn:
+            rows = [dict(r) for r in conn.execute(q, args)]
+        for r in rows:
+            r["provenance"] = self._unj(r.get("provenance"), [])
+        return rows
+
+    def edge_count(self) -> int:
+        with self.connect() as conn:
+            return conn.execute("SELECT COUNT(*) AS c FROM edges").fetchone()["c"]

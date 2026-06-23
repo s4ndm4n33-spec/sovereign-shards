@@ -8,6 +8,9 @@ import { TimelineView } from "./components/TimelineView";
 import { SearchPanel } from "./components/SearchPanel";
 import { IngestionPanel } from "./components/IngestionPanel";
 import { NarrativeReader } from "./components/NarrativeReader";
+import { BiographyPanel } from "./components/BiographyPanel";
+import { GraphExplorer } from "./components/GraphExplorer";
+import { EvolutionPanel } from "./components/EvolutionPanel";
 import { crawlUrls, processFiles } from "./lib/api";
 import type { ProcessResult } from "./lib/types";
 
@@ -224,6 +227,21 @@ function HistorianView() {
       <section>
         <h2 className="mb-3 text-sm font-semibold text-ink-100">Narratives</h2>
         <NarrativeReader />
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-vic-glow">Knowledge Graph</h2>
+        <GraphExplorer />
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-vic-glow">Concept Biography</h2>
+        <BiographyPanel />
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-vic-glow">Evolution Engine</h2>
+        <EvolutionPanel />
       </section>
     </div>
   );

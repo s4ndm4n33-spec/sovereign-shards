@@ -287,6 +287,13 @@ def ingest_markdown(store: Store, path: str | Path, repo_id: str, source_kind: s
             tags=_md_tags(fm, body),
         )
         store.upsert_decision(decision)
+        store.upsert_event(Event(
+            id=_stable_id("event", "decision", "doc", str(path)),
+            repository_id=repo_id, kind=EventKind.DECISION.value,
+            source_kind=SourceKind.MARKDOWN.value, source_ref=str(path),
+            occurred_at=_iso(occurred), title=decision.title, body=decision.rationale,
+            detail_id=decision.id, tags=decision.tags, importance=0.85,
+        ))
 
     return {"repository_id": repo_id, "doc": str(path), "title": title, "decision": _looks_like_adr(body, title)}
 
