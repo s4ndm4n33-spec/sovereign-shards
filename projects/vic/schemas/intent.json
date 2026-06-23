@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VIC Graph Intent Schema",
+  "type": "object",
+  "required": ["op"],
+  "properties": {
+    "op": {
+      "type": "string",
+      "enum": ["ADD_NODE", "ADD_EDGE", "UPDATE_NODE", "DELETE_NODE", "UNRESOLVED"],
+      "description": "Deterministic graph operation intent"
+    },
+    "node": {
+      "type": "object",
+      "description": "Node payload for ADD/UPDATE operations",
+      "additionalProperties": true
+    },
+    "from": { "type": "string" },
+    "to": { "type": "string" },
+    "relation": { "type": "string" },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
