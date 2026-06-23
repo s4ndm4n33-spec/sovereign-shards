@@ -1,7 +1,4 @@
 """V.I.C. processing pipeline: ingest → parse → extract → preview.
-
-A single :func:`process_inputs` call returns a serializable result struct
-suitable for JSON responses. The Flask app in :mod:`app` wraps this.
 """
 
 from __future__ import annotations
@@ -33,8 +30,11 @@ from .parsers import (
     parse_gemini_file,
 )
 
+from .deterministic_agent import DeterministicAgent
+
 log = logging.getLogger("vic.pipeline")
 
+agent = DeterministicAgent()
 
 @dataclass
 class ProcessResult:
@@ -44,23 +44,21 @@ class ProcessResult:
     date_range: tuple[str, str]
     themes: list[tuple[str, int]]
     projects: dict[str, list[dict]]
-    sessions: list[dict]  # chronological, with extracted fields
+    sessions: list[dict]
     jsonl: str
     exec_summary: str = ""
+    ir: dict | None = None
 
 
 def _parse_zip(zip_path: Path) -> list[Conversation]:
-    """Parse a single ZIP archive, dispatching by provider markers."""
     providers = detect_provider(zip_path=zip_path)
     out: list[Conversation] = []
     if "chatgpt" in providers:
         out.extend(extract_conversations_from_zip(zip_path))
     if "gemini" in providers:
-        # extract_conversations_from_zip also handles Gemini when conversations.json is absent
         if not out:
             out.extend(extract_conversations_from_zip(zip_path))
     if not out:
-        # Last resort: treat as a generic archive of JSON files
         with tempfile.TemporaryDirectory() as td:
             tdp = Path(td)
             with zipfile.ZipFile(zip_path, "r") as zf:
@@ -70,7 +68,6 @@ def _parse_zip(zip_path: Path) -> list[Conversation]:
 
 
 def _parse_files(paths: list[Path]) -> list[Conversation]:
-    """Parse loose JSON files, dispatching by content shape."""
     out: list[Conversation] = []
     for p in paths:
         try:
@@ -85,7 +82,6 @@ def _parse_files(paths: list[Path]) -> list[Conversation]:
         elif '"gemini"' in head or 'my activity' in head:
             out.extend(parse_gemini_file(p))
         else:
-            # Try each parser once
             out.extend(parse_claude_file(p))
             if not out or not any(c.provider == "claude" for c in out[-3:]):
                 out.extend(parse_chatgpt_file(p))
@@ -108,12 +104,6 @@ def process_inputs(zip_paths: list[Path], json_paths: list[Path]) -> ProcessResu
 
 
 def process_conversations(conversations: list[Conversation]) -> ProcessResult:
-    """Run the extract/build pipeline on a pre-built conversation list.
-
-    Shared by file uploads and the URL crawler so both paths produce the
-    same preview/export shape.
-    """
-    # De-duplicate by (provider, raw_id) when raw_id is present
     seen: set[tuple[str, str]] = set()
     deduped: list[Conversation] = []
     for c in conversations:
@@ -128,7 +118,6 @@ def process_conversations(conversations: list[Conversation]) -> ProcessResult:
     providers = sorted({c.provider for c in ordered if c.provider})
     themes = extract_themes(ordered)
 
-    # Per-session preview payloads
     sessions: list[dict] = []
     for idx, conv in enumerate(ordered, start=1):
         ext = extract_from_conversation(conv)
@@ -147,7 +136,6 @@ def process_conversations(conversations: list[Conversation]) -> ProcessResult:
             "message_count": len(conv.messages),
         })
 
-    # Project groupings (serialized)
     project_map = group_by_project(ordered)
     projects: dict[str, list[dict]] = {}
     for label, convs in project_map.items():
@@ -177,7 +165,9 @@ def process_conversations(conversations: list[Conversation]) -> ProcessResult:
         f"Recurring themes: {theme_str}."
     )
 
-    return ProcessResult(
+    ir = None
+
+    result = ProcessResult(
         providers=providers,
         session_count=len(ordered),
         message_count=total_msgs,
@@ -187,32 +177,7 @@ def process_conversations(conversations: list[Conversation]) -> ProcessResult:
         sessions=sessions,
         jsonl=jsonl_text,
         exec_summary=exec_summary,
+        ir=ir
     )
 
-
-def result_to_dict(result: ProcessResult) -> dict:
-    d = asdict(result)
-    return d
-
-
-def make_pdf_bytes(result: ProcessResult, title: str) -> bytes:
-    # Reconstruct minimal Conversation list isn't needed; reuse sessions
-    from .models import Conversation, Message
-    from datetime import datetime
-
-    convs: list[Conversation] = []
-    for s in result.sessions:
-        c = Conversation(
-            provider=s["provider"],
-            source_file="",
-            raw_id=str(s["session"]),
-            title=s["title"],
-            messages=[Message(role="user", content=s["summary"])] if s["summary"] else [],
-        )
-        if s["date"] and s["date"] != "unknown":
-            try:
-                c.created = datetime.strptime(s["date"], "%Y-%m-%d")
-            except ValueError:
-                pass
-        convs.append(c)
-    return build_pdf(convs, project_title=title)
+    return result
