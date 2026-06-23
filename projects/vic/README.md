@@ -64,7 +64,7 @@ npm install
 npm run dev               # serves http://127.0.0.1:5173 (proxies /api → 8001)
 ```
 
-Open http://127.0.0.1:5173, drag a Takeout ZIP / ChatGPT `conversations.json` / Claude JSON files onto the dropzone, and download the PDF + JSONL.
+Open http://127.0.0.1:5173, drag a Takeout ZIP / ChatGPT `conversations.json` / Claude JSON files onto the dropzone, **or paste a shared chat link** below the dropzone, and download the PDF + JSONL.
 
 ## Tests
 
@@ -72,6 +72,7 @@ Open http://127.0.0.1:5173, drag a Takeout ZIP / ChatGPT `conversations.json` / 
 cd projects/vic/backend
 python3 tests/test_pipeline.py   # full pipeline across Gemini + ChatGPT + Claude
 python3 tests/test_http.py        # Flask endpoints via test client
+python3 tests/test_crawler.py    # URL crawl + provider auto-detection
 ```
 
 ## Provider detection
@@ -83,6 +84,18 @@ Detection is structural — no manual selection, no content execution:
 | Gemini | `Takeout/...Gemini/...` ZIP member paths |
 | ChatGPT | `conversations.json` (in ZIP or folder) or `"mapping"` + `"author"` JSON keys |
 | Claude | `"chat_messages"` / `"sender"` JSON keys, or `claude_*` filenames |
+
+## URL crawling
+
+In addition to file uploads, V.I.C. can crawl a **shared chat link**:
+
+- Paste a ChatGPT share (`chatgpt.com/share/…`), Claude share (`claude.ai/share/…`), or Gemini share (`gemini.google.com/share/…`) into the link input.
+- The crawler first tries a lightweight HTTP fetch; if the page is JS-rendered it falls back to a headless Chromium render via Selenium.
+- Provider is auto-detected from the URL host, with content-based refinement for mirrors/aliases.
+- Multiple URLs can be crawled at once; partial failures are surfaced as warnings without blocking the successful ones.
+- Crawled conversations run through the exact same pipeline (extract → cluster → preview → export) as uploaded files.
+
+Crawl endpoint: `POST /api/crawl` with `{"url": "…"}` or `{"urls": ["…", "…"]}`.
 
 ## Output
 

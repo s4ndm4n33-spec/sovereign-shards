@@ -57,6 +57,28 @@ export async function downloadPdf(result: ProcessResult, title: string) {
   triggerDownload(blob, "VIC-report.pdf");
 }
 
+export async function crawlUrls(
+  urls: string[],
+  onProgress?: (pct: number, label: string) => void
+): Promise<ProcessResult> {
+  onProgress?.(10, "Fetching shared chat…");
+  const resp = await fetch(`${BASE}/crawl`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ urls }),
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ error: resp.statusText }));
+    throw new Error(err.error || `Crawl failed (HTTP ${resp.status})`);
+  }
+  const data = (await resp.json()) as ProcessResult & { crawl_warnings?: { url: string; error: string }[] };
+  if (data.crawl_warnings && data.crawl_warnings.length) {
+    console.warn("Crawl warnings:", data.crawl_warnings);
+  }
+  onProgress?.(100, "Done");
+  return data;
+}
+
 export async function downloadJsonl(result: ProcessResult) {
   const resp = await fetch(`${BASE}/jsonl`, {
     method: "POST",

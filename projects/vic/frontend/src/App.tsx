@@ -1,8 +1,9 @@
 import { useCallback, useState } from "react";
 import { Dropzone } from "./components/Dropzone";
+import { LinkInput } from "./components/LinkInput";
 import { ProgressBar } from "./components/ProgressBar";
 import { ResultsPanel } from "./components/ResultsPanel";
-import { processFiles } from "./lib/api";
+import { crawlUrls, processFiles } from "./lib/api";
 import type { ProcessResult } from "./lib/types";
 
 type Stage = "idle" | "working" | "done" | "error";
@@ -30,6 +31,25 @@ export default function App() {
       setStage("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Processing failed");
+      setStage("error");
+    }
+  }, []);
+
+  const handleUrls = useCallback(async (urls: string[]) => {
+    setStagedFiles([]);
+    setStage("working");
+    setError(null);
+    setProgress(0);
+    setProgressLabel("Fetching shared chat…");
+    try {
+      const res = await crawlUrls(urls, (pct, label) => {
+        setProgress(pct);
+        setProgressLabel(label);
+      });
+      setResult(res);
+      setStage("done");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Crawl failed");
       setStage("error");
     }
   }, []);
@@ -68,6 +88,8 @@ export default function App() {
         {stage !== "done" && (
           <section className="space-y-6">
             <Dropzone onFiles={handleFiles} disabled={stage === "working"} />
+
+            <LinkInput onSubmit={handleUrls} disabled={stage === "working"} />
 
             {stagedFiles.length > 0 && (
               <div className="rounded-xl border border-ink-700/60 bg-ink-800/30 p-3">

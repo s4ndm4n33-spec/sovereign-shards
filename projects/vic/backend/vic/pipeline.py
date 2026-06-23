@@ -104,6 +104,15 @@ def process_inputs(zip_paths: list[Path], json_paths: list[Path]) -> ProcessResu
     if json_paths:
         conversations.extend(_parse_files(json_paths))
 
+    return process_conversations(conversations)
+
+
+def process_conversations(conversations: list[Conversation]) -> ProcessResult:
+    """Run the extract/build pipeline on a pre-built conversation list.
+
+    Shared by file uploads and the URL crawler so both paths produce the
+    same preview/export shape.
+    """
     # De-duplicate by (provider, raw_id) when raw_id is present
     seen: set[tuple[str, str]] = set()
     deduped: list[Conversation] = []

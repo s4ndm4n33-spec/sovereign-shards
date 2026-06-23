@@ -19,7 +19,8 @@ from pathlib import Path
 
 from flask import Flask, jsonify, request, send_file, abort
 
-from .pipeline import ProcessResult, make_pdf_bytes, process_inputs, result_to_dict
+from .crawler import CrawlError, crawl_chat_url, detect_provider_from_url
+from .pipeline import ProcessResult, make_pdf_bytes, process_conversations, process_inputs, result_to_dict
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s — %(message)s")
 log = logging.getLogger("vic.app")
@@ -81,6 +82,40 @@ def create_app() -> Flask:
             import shutil
 
             shutil.rmtree(tmpdir, ignore_errors=True)
+
+    @app.route("/api/crawl", methods=["POST"])
+    def crawl():
+        payload = request.get_json(silent=True) or {}
+        url = (payload.get("url") or "").strip()
+        urls = payload.get("urls") or []
+        if not url and not urls:
+            return jsonify({"error": "No URL provided"}), 400
+        all_urls = [url] + [u for u in urls if u]
+        all_urls = [u.strip() for u in all_urls if u.strip()]
+        valid_schemes = ("http://", "https://")
+        bad = [u for u in all_urls if not u.lower().startswith(valid_schemes)]
+        if bad:
+            return jsonify({"error": "Only http(s) URLs are supported", "rejected": bad}), 400
+        try:
+            conversations = []
+            errors: list[dict] = []
+            for u in all_urls:
+                try:
+                    conversations.append(crawl_chat_url(u))
+                except CrawlError as ce:
+                    errors.append({"url": u, "error": ce.reason})
+                except Exception as exc:  # noqa: BLE001
+                    errors.append({"url": u, "error": str(exc)})
+            if not conversations:
+                return jsonify({"error": "No conversations could be crawled", "details": errors}), 422
+            result = process_conversations(conversations)
+            out = result_to_dict(result)
+            if errors:
+                out["crawl_warnings"] = errors
+            return jsonify(out)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("Crawl processing failed")
+            return jsonify({"error": str(exc)}), 500
 
     @app.route("/api/pdf", methods=["POST"])
     def pdf():
