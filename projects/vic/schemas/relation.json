@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VIC Relation Schema",
+  "type": "object",
+  "required": ["from", "to", "relation"],
+  "properties": {
+    "from": {
+      "type": "string",
+      "description": "Source entity_id"
+    },
+    "to": {
+      "type": "string",
+      "description": "Target entity_id"
+    },
+    "relation": {
+      "type": "string",
+      "enum": ["IS_A", "PART_OF", "CAUSES", "PRECEDES", "REFERENCES", "CONTAINS", "DERIVES_FROM", "UNRESOLVED"],
+      "description": "Strict deterministic relation type"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Deterministic confidence score (no probabilistic inference; rule-derived only)"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
