@@ -29,39 +29,6 @@ A fully local AI developer agent that runs from a USB stick.
 
 ---
 
-## 🧭 VIC Temporal Reconstruction Subsystem (New)
-
-A deterministic cross-session reconstruction layer has been integrated into the Sovereign Shards ecosystem.
-
-### What it adds
-
-- **Cross-session history fusion**: multiple chat/session logs unified into a single temporal model
-- **Deterministic IR layer**: all inputs normalized into structured intent streams
-- **State reducer graph**: mutation-only knowledge graph (`apply_intent`) with no inference logic
-- **Temporal narrative engine**: reconstructs arcs of system evolution across time
-- **Temporal query engine**: enables entity lifecycle tracing and arc-based history traversal
-- **Causal graph layer**: extracts stable cross-session transition invariants
-
-### System view
-
-```
-IR (intents)
-   ↓
-KnowledgeGraph (state reducer)
-   ↓
-NarrativeEngine (temporal arcs)
-   ↓
-TemporalQueryEngine (history traversal)
-   ↓
-CausalGraph (stable transition patterns)
-```
-
-### Core property
-
-This subsystem does NOT introduce inference into the core. It is a deterministic reconstruction system over multiple independent histories.
-
----
-
 ## Repository Layout
 
 This repository is organized around the Sovereign Shards core agent while keeping separate platform projects isolated in `projects/`.
