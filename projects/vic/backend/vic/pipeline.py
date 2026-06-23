@@ -165,7 +165,7 @@ def process_conversations(conversations: list[Conversation]) -> ProcessResult:
         f"Recurring themes: {theme_str}."
     )
 
-    ir = None
+    ir = agent.process({"text": json.dumps(sessions)})
 
     result = ProcessResult(
         providers=providers,
