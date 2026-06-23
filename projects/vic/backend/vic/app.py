@@ -1,12 +1,33 @@
 """V.I.C. Flask backend.
 
 Endpoints:
-  POST /api/process   — accept multipart upload (ZIPs + JSON files), process, return preview
-  POST /api/pdf        — accept JSON body, return rendered PDF
-  POST /api/jsonl      — accept JSON body, return archive.jsonl
-  GET  /api/health     — liveness check
+  POST /api/process        — accept multipart upload (ZIPs + JSON files), process, return preview
+  POST /api/crawl          — crawl shared chat URL(s), process, return preview
+  POST /api/pdf            — accept JSON body, return rendered PDF
+  POST /api/jsonl          — accept JSON body, return archive.jsonl
+  GET  /api/health          — liveness check
 
-No persistence: all work happens in temp dirs that are deleted per request.
+  Historian endpoints (automated software historian):
+  POST /api/ingest/git       — ingest a local git repo by path
+  POST /api/ingest/markdown — ingest a markdown document
+  POST /api/ingest/notes    — ingest structured notes (JSON)
+  POST /api/ingest/github   — ingest a GitHub PR/issue export (JSON)
+  GET  /api/timeline         — chronological timeline with links
+  GET  /api/events           — list events (filtered)
+  GET  /api/decisions        — list decisions
+  GET  /api/artifacts        — list artifacts
+  GET  /api/milestones       — list milestones
+  GET  /api/persons          — list persons
+  GET  /api/repositories     — list repositories
+  GET  /api/stats            — store statistics
+  GET  /api/search           — semantic search (TF-IDF + FTS5)
+  POST /api/ask              — answer a historical question
+  POST /api/narrative        — generate a narrative report
+  GET  /api/narratives       — list generated narratives
+
+Sovereignty: chat-archive processing is stateless (temp dirs deleted per
+request). The historian store uses a local embedded SQLite file on the
+user's machine — never a cloud database.
 """
 
 from __future__ import annotations
@@ -21,6 +42,18 @@ from flask import Flask, jsonify, request, send_file, abort
 
 from .crawler import CrawlError, crawl_chat_url, detect_provider_from_url
 from .pipeline import ProcessResult, make_pdf_bytes, process_conversations, process_inputs, result_to_dict
+from .store import Store
+from .ingest import ingest_git, ingest_markdown, ingest_structured_notes, ingest_github_export, ingest_conversations
+from .timeline import build_timeline, answer_question
+from .narrator import (
+    generate_executive_summary,
+    generate_architectural_evolution,
+    generate_dependency_evolution,
+    generate_state_of_project,
+    generate_decision_tree,
+    generate_from_query,
+)
+from .models import Conversation, Message
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s — %(message)s")
 log = logging.getLogger("vic.app")
@@ -149,6 +182,167 @@ def create_app() -> Flask:
             as_attachment=True,
             download_name="archive.jsonl",
         )
+
+    # ===================================================================
+    # Historian endpoints
+    # ===================================================================
+
+    def _store() -> Store:
+        if not hasattr(app, "_vic_store"):
+            app._vic_store = Store()
+        return app._vic_store
+
+    @app.route("/api/stats")
+    def stats():
+        return jsonify(_store().stats())
+
+    @app.route("/api/repositories")
+    def repositories():
+        return jsonify(_store().list_repositories())
+
+    @app.route("/api/persons")
+    def persons():
+        repo_id = request.args.get("repository_id")
+        return jsonify(_store().list_persons(repository_id=repo_id))
+
+    @app.route("/api/events")
+    def events():
+        repo_id = request.args.get("repository_id")
+        kind = request.args.get("kind")
+        since = request.args.get("since")
+        until = request.args.get("until")
+        limit = int(request.args.get("limit", 500))
+        return jsonify(_store().list_events(repository_id=repo_id, kind=kind, since=since, until=until, limit=limit))
+
+    @app.route("/api/decisions")
+    def decisions():
+        repo_id = request.args.get("repository_id")
+        return jsonify(_store().list_decisions(repository_id=repo_id))
+
+    @app.route("/api/artifacts")
+    def artifacts():
+        repo_id = request.args.get("repository_id")
+        kind = request.args.get("kind")
+        return jsonify(_store().list_artifacts(repository_id=repo_id, kind=kind))
+
+    @app.route("/api/milestones")
+    def milestones():
+        repo_id = request.args.get("repository_id")
+        return jsonify(_store().list_milestones(repository_id=repo_id))
+
+    @app.route("/api/timeline")
+    def timeline():
+        repo_id = request.args.get("repository_id")
+        since = request.args.get("since")
+        until = request.args.get("until")
+        kinds = request.args.getlist("kind")
+        limit = int(request.args.get("limit", 1000))
+        return jsonify(build_timeline(_store(), repository_id=repo_id, since=since, until=until, kinds=kinds or None, limit=limit))
+
+    @app.route("/api/search")
+    def search():
+        q = request.args.get("q", "").strip()
+        if not q:
+            return jsonify({"error": "Missing query parameter 'q'"}), 400
+        repo_id = request.args.get("repository_id")
+        mode = request.args.get("mode", "semantic")
+        limit = int(request.args.get("limit", 20))
+        if mode == "fulltext":
+            return jsonify(_store().search_fulltext(q, repository_id=repo_id, limit=limit))
+        return jsonify(_store().search_semantic(q, repository_id=repo_id, limit=limit))
+
+    @app.route("/api/ask", methods=["POST"])
+    def ask():
+        payload = request.get_json(silent=True) or {}
+        question = (payload.get("question") or "").strip()
+        if not question:
+            return jsonify({"error": "Missing 'question'"}), 400
+        repo_id = payload.get("repository_id")
+        return jsonify(answer_question(_store(), question, repository_id=repo_id))
+
+    @app.route("/api/narrative", methods=["POST"])
+    def narrative():
+        payload = request.get_json(silent=True) or {}
+        kind = (payload.get("kind") or "executive_summary").strip()
+        repo_id = payload.get("repository_id")
+        since = payload.get("since")
+        until = payload.get("until")
+        at_date = payload.get("at_date")
+        query = payload.get("query")
+        if kind == "executive_summary":
+            n = generate_executive_summary(_store(), repository_id=repo_id, since=since, until=until)
+        elif kind == "arch_evolution":
+            n = generate_architectural_evolution(_store(), repository_id=repo_id, since=since, until=until)
+        elif kind == "dep_evolution":
+            n = generate_dependency_evolution(_store(), repository_id=repo_id, since=since, until=until)
+        elif kind == "state_of_project":
+            n = generate_state_of_project(_store(), repository_id=repo_id, at_date=at_date or until)
+        elif kind == "decision_tree":
+            n = generate_decision_tree(_store(), repository_id=repo_id)
+        elif kind == "custom":
+            n = generate_from_query(_store(), query or "", repository_id=repo_id)
+        else:
+            return jsonify({"error": f"Unknown narrative kind: {kind}"}), 400
+        from .historian_model import to_dict
+        return jsonify(to_dict(n))
+
+    @app.route("/api/narratives")
+    def narratives():
+        repo_id = request.args.get("repository_id")
+        return jsonify(_store().list_narratives(repository_id=repo_id))
+
+    @app.route("/api/ingest/git", methods=["POST"])
+    def ingest_git_route():
+        payload = request.get_json(silent=True) or {}
+        repo_path = payload.get("path")
+        if not repo_path:
+            return jsonify({"error": "Missing 'path'"}), 400
+        repo_id = payload.get("repository_id")
+        limit = int(payload.get("limit", 5000))
+        try:
+            result = ingest_git(_store(), repo_path, repo_id=repo_id, limit=limit)
+            return jsonify(result)
+        except (FileNotFoundError, OSError) as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    @app.route("/api/ingest/markdown", methods=["POST"])
+    def ingest_markdown_route():
+        payload = request.get_json(silent=True) or {}
+        path = payload.get("path")
+        repo_id = payload.get("repository_id")
+        if not path or not repo_id:
+            return jsonify({"error": "Missing 'path' or 'repository_id'"}), 400
+        try:
+            result = ingest_markdown(_store(), path, repo_id=repo_id)
+            return jsonify(result)
+        except (FileNotFoundError, OSError) as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    @app.route("/api/ingest/notes", methods=["POST"])
+    def ingest_notes_route():
+        payload = request.get_json(silent=True) or {}
+        path = payload.get("path")
+        repo_id = payload.get("repository_id")
+        if not path or not repo_id:
+            return jsonify({"error": "Missing 'path' or 'repository_id'"}), 400
+        try:
+            result = ingest_structured_notes(_store(), path, repo_id=repo_id)
+            return jsonify(result)
+        except (FileNotFoundError, OSError, ValueError) as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    @app.route("/api/ingest/github", methods=["POST"])
+    def ingest_github_route():
+        payload = request.get_json(silent=True) or {}
+        path = payload.get("path")
+        repo_id = payload.get("repository_id")
+        if not path or not repo_id:
+            return jsonify({"error": "Missing 'path' or 'repository_id'"}), 400
+        try:
+            result = ingest_github_export(_store(), path, repo_id=repo_id)
+            return jsonify(result)
+        except (FileNotFoundError, OSError, ValueError) as exc:
+            return jsonify({"error": str(exc)}), 400
 
     return app
 

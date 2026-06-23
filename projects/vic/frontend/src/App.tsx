@@ -3,10 +3,16 @@ import { Dropzone } from "./components/Dropzone";
 import { LinkInput } from "./components/LinkInput";
 import { ProgressBar } from "./components/ProgressBar";
 import { ResultsPanel } from "./components/ResultsPanel";
+import { HistorianDashboard } from "./components/HistorianDashboard";
+import { TimelineView } from "./components/TimelineView";
+import { SearchPanel } from "./components/SearchPanel";
+import { IngestionPanel } from "./components/IngestionPanel";
+import { NarrativeReader } from "./components/NarrativeReader";
 import { crawlUrls, processFiles } from "./lib/api";
 import type { ProcessResult } from "./lib/types";
 
 type Stage = "idle" | "working" | "done" | "error";
+type View = "archive" | "historian";
 
 export default function App() {
   const [stage, setStage] = useState<Stage>("idle");
@@ -15,6 +21,7 @@ export default function App() {
   const [result, setResult] = useState<ProcessResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stagedFiles, setStagedFiles] = useState<File[]>([]);
+  const [view, setView] = useState<View>("archive");
 
   const handleFiles = useCallback(async (files: File[]) => {
     setStagedFiles(files);
@@ -73,19 +80,27 @@ export default function App() {
                 V.I.C. <span className="text-vic-glow">— Value In Conversation</span>
               </h1>
               <p className="text-[11px] uppercase tracking-widest text-ink-500">
-                Bulk AI chat archive · sovereign by design
+                {view === "historian" ? "Automated software historian" : "Bulk AI chat archive · sovereign by design"}
               </p>
             </div>
           </div>
-          <div className="hidden items-center gap-2 text-[11px] text-ink-500 sm:flex">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            No auth · No database · Nothing leaves your machine
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setView(view === "archive" ? "historian" : "archive")}
+              className="rounded-lg border border-ink-600 bg-ink-700/40 px-3 py-1.5 text-xs font-medium text-ink-100 transition hover:border-vic-glow/40"
+            >
+              {view === "archive" ? "Historian →" : "← Archive"}
+            </button>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-6 pb-20">
-        {stage !== "done" && (
+        {view === "historian" ? (
+          <HistorianView />
+        ) : (
+          <>
+          {stage !== "done" && (
           <section className="space-y-6">
             <Dropzone onFiles={handleFiles} disabled={stage === "working"} />
 
@@ -135,6 +150,8 @@ export default function App() {
         )}
 
         {stage === "done" && result && <ResultsPanel result={result} onReset={reset} />}
+          </>
+        )}
       </main>
 
       <footer className="mx-auto max-w-6xl px-6 pb-8 text-center text-[11px] text-ink-500">
@@ -184,4 +201,30 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)}GB`;
+}
+
+function HistorianView() {
+  const [refreshKey, setRefreshKey] = useState(0);
+  return (
+    <div className="fade-in space-y-6">
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-ink-100">Historian Store</h2>
+        <HistorianDashboard key={refreshKey} />
+      </section>
+
+      <IngestionPanel onIngested={() => setRefreshKey((k) => k + 1)} />
+
+      <SearchPanel />
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-ink-100">Timeline</h2>
+        <TimelineView key={refreshKey} />
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-ink-100">Narratives</h2>
+        <NarrativeReader />
+      </section>
+    </div>
+  );
 }

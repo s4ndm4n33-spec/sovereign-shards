@@ -1,6 +1,8 @@
 # V.I.C. — Value In Conversation
 
-A bulk AI chat archive tool that processes exported conversation history from multiple AI providers (Gemini, ChatGPT, Claude) into structured project documentation. **Sovereign by design**: no auth, no database, no cloud storage, nothing persisted server-side. Process locally, download, done.
+A bulk AI chat archive tool that processes exported conversation history from multiple AI providers (Gemini, ChatGPT, Claude) into structured project documentation. **Sovereign by design**: no auth, no cloud storage, nothing persisted to a remote server. Process locally, download, done.
+
+V.I.C. also operates as an **automated software historian**: it ingests git history, pull requests, issue discussions, design docs, and chat logs into a unified timeline, then generates executive summaries, architectural evolution reports, dependency tracking, decision trees, and "state of the project at point in time" reports. Ask it "Who introduced the registry pattern?" or "When did we first discuss JGPU?" and get cited, searchable historical facts instead of archaeology.
 
 ## Stack
 
@@ -8,7 +10,9 @@ A bulk AI chat archive tool that processes exported conversation history from mu
 - **Backend**: Python + Flask
 - **PDF**: reportlab
 - **JSONL**: stdlib `json`
-- **No authentication, no database, no cloud storage**
+- **Historian store**: local embedded SQLite (stdlib `sqlite3`) at `~/.vic/historian.db` — sovereign by design, never a cloud database
+- **Semantic search**: FTS5 (BM25) + TF-IDF cosine similarity
+- **Headless crawling**: Selenium + Chromium (for JS-rendered share pages)
 
 ## Layout
 
@@ -66,16 +70,73 @@ npm run dev               # serves http://127.0.0.1:5173 (proxies /api → 8001)
 
 Open http://127.0.0.1:5173, drag a Takeout ZIP / ChatGPT `conversations.json` / Claude JSON files onto the dropzone, **or paste a shared chat link** below the dropzone, and download the PDF + JSONL.
 
-## Tests
+### Tests
 
 ```bash
 cd projects/vic/backend
-python3 tests/test_pipeline.py   # full pipeline across Gemini + ChatGPT + Claude
-python3 tests/test_http.py        # Flask endpoints via test client
-python3 tests/test_crawler.py    # URL crawl + provider auto-detection
+python3 tests/test_pipeline.py     # full pipeline across Gemini + ChatGPT + Claude
+python3 tests/test_http.py         # Flask endpoints via test client
+python3 tests/test_crawler.py      # URL crawl + provider auto-detection
+python3 tests/test_historian.py    # historian: git + markdown + notes + chats → timeline + search + narratives
 ```
 
-## Provider detection
+## Data model (historian)
+
+Every timestamped fact is an **Event** — the universal timeline atom:
+
+| Entity | Purpose |
+| --- | --- |
+| `Event` | A timestamped fact (commit, chat message, decision, PR, release). The timeline atom. |
+| `Person` | Human or bot that authored events (git author, chat participant, commenter) |
+| `Repository` | A git repo or logical project that events belong to |
+| `Session` | A chat conversation (ChatGPT/Claude/Gemini), normalized |
+| `Decision` | An explicit decision with rationale, status, scope, supersession lineage |
+| `Artifact` | A produced artifact (commit, PR, issue, doc, diagram, release) |
+| `Milestone` | A named point in time (release, freeze, demo, EOL) |
+| `Narrative` | A generated human-readable report spanning linked events |
+
+## Ingestion sources
+
+| Source | Endpoint | How |
+| --- | --- | --- |
+| Git commits | `POST /api/ingest/git` | Runs `git log` locally against a repo path |
+| Markdown docs | `POST /api/ingest/markdown` | Front-matter + body; auto-detects decision records (ADRs) |
+| Structured notes | `POST /api/ingest/notes` | JSON with decisions, milestones, or generic timeline notes |
+| GitHub exports | `POST /api/ingest/github` | PR/issue JSON exports |
+| Chat uploads | `POST /api/process` | Existing archive flow — also feeds the historian store |
+| Chat URLs | `POST /api/crawl` | Crawls shared chat links |
+
+## Timeline engine
+
+`GET /api/timeline` returns events chronologically with inferred links based on:
+- same actor (who-bridging)
+- shared tags or repository
+- explicit `links` references
+- temporal proximity (events within 24h sharing tags form clusters)
+
+## Semantic search
+
+`GET /api/search?q=…&mode=semantic` — TF-IDF cosine similarity ranking with FTS5 (BM25) fallback. Indexed on event title + body.
+
+## Historical Q&A
+
+`POST /api/ask` — pattern-matches natural-language questions:
+- "Who introduced X?" → finds earliest event matching X, returns actor + date
+- "When did we first discuss X?" → finds first chronological mention
+- "Why did X change between A and B?" → events in date range semantically filtered
+- "Show me what happened between A and B" → timeline window + summary
+
+## Narrative reports
+
+`POST /api/narrative` generates:
+- `executive_summary` — overview of events, decisions, milestones, contributors
+- `arch_evolution` — architecture-related events grouped by month
+- `dep_evolution` — dependency additions, removals, upgrades
+- `state_of_project` — snapshot at a point in time
+- `decision_tree` — decisions with supersession lineage
+- `custom` — narrative from a natural-language query
+
+All narratives cite supporting event IDs so every claim is traceable.
 
 Detection is structural — no manual selection, no content execution:
 
