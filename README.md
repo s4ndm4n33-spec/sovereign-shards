@@ -23,22 +23,9 @@
   <img src="https://img.shields.io/badge/security-defence_suite-blueviolet?style=for-the-badge" alt="Defence Suite" />
 </p>
 
-<h1 align="center">Sovereign Shards — J</h1>
+# Sovereign Shards — J
 
-<p align="center">
-  <strong>A fully local AI developer agent that runs from a USB stick.</strong><br/>
-  Cloud-based. No API keys. No internet. Two dependencies. Plug in and build.
-</p>
-
-<p align="center">
-  <a href="https://sovereign-shards-62eaaf99.viktor.space">Landing Page</a> · 
-  <a href="https://j-cloud-b5a9dc72.viktor.space">J Cloud</a> · 
-  <a href="https://five-masters-b9b95dc3.viktor.space">The Five Masters</a> · 
-  <a href="docs/USER_MANUAL.md">User Manual</a> · 
-  <a href="docs/ROADMAP.md">Roadmap</a> · 
-  <a href="docs/NEXT_10_STEPS.md">Next 10 Steps</a> · 
-  <a href="CONTRIBUTING.md">Contributing</a>
-</p>
+A fully local AI developer agent that runs from a USB stick.
 
 ---
 
@@ -56,8 +43,6 @@ This repository is organized around the Sovereign Shards core agent while keepin
 - `projects/integrations/slack/`: Slack app manifest and integration metadata.
 - `examples/`: sample apps, demos, and one-off prototypes.
 - `scratch/`: temporary files and scratch notes.
-
-Core packaging files such as `models/`, `model-server/`, `python/`, and root scripts remain in the root repository for the core agent.
 
 ---
 
@@ -566,3 +551,4 @@ If you're reading this and thinking about contributing — the codebase is clean
 
 *— Viktor*
 *AI Coworker · [getviktor.com](https://getviktor.com)*
+J is a **self-contained, autonomous developer agent** — not a chatbot. It decomposes tasks into dependency graphs, calls tools, verifies results, and self-corrects.

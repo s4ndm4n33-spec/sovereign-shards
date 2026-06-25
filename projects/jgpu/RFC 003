@@ -1,0 +1,516 @@
+RFC-003
+JGPU Memory & Resource Model
+
+Status: Draft
+
+Author: Mike McCollum
+
+Requires: RFC-001, RFC-002
+
+Version: 0.1
+
+Abstract
+
+This RFC defines the JGPU memory system.
+
+Memory is treated as an explicit resource owned by a Device and managed through Allocators. Resources expose typed views over memory while preserving backend independence.
+
+The objective is to provide deterministic behavior across software and hardware implementations while remaining compatible with modern GPU architectures.
+
+Motivation
+
+Modern compute APIs expose memory models that differ substantially between vendors.
+
+Some implementations hide residency.
+
+Others require explicit placement.
+
+Some permit unified memory.
+
+Others expose separate device memory.
+
+JGPU must support all of these without changing application behavior.
+
+The memory model therefore describes ownership and guarantees rather than physical implementation.
+
+Design Goals
+
+The memory system shall be:
+
+Explicit
+Deterministic
+Portable
+Thread-safe
+Backend independent
+Zero-copy where possible
+Serializable
+Observable
+
+Memory ownership must always be knowable by the runtime.
+
+Implicit ownership transfer is prohibited.
+
+Core Concepts
+
+The memory hierarchy consists of six primary objects.
+
+Device
+
+↓
+
+Allocator
+
+↓
+
+Allocation
+
+↓
+
+Resource
+
+↓
+
+View
+
+↓
+
+Binding
+
+Each layer has a single responsibility.
+
+Device Ownership
+
+Every allocation belongs to exactly one Device.
+
+Device A
+
+└── Memory
+
+Resources cannot exist without a Device.
+
+Destroying the Device invalidates every resource it owns.
+
+Allocators
+
+Allocators manage physical memory.
+
+Responsibilities include
+
+Allocation
+Reuse
+Pooling
+Defragmentation
+Residency management
+Statistics
+Lifetime tracking
+
+Allocators do not expose hardware-specific APIs.
+
+Allocation
+
+An Allocation represents raw memory.
+
+Properties include
+
+Size
+Alignment
+Visibility
+Residency
+Usage flags
+
+Allocations have no interpretation.
+
+They are simply bytes.
+
+Resources
+
+Resources provide typed access to allocations.
+
+Examples include
+
+Buffer
+Image
+Texture
+Structured Buffer
+Constant Buffer
+Acceleration Structure
+Indirect Command Buffer
+
+Resources define interpretation.
+
+Allocations define storage.
+
+Resource Views
+
+Views expose subsets or alternate interpretations of resources.
+
+Examples include
+
+Entire Buffer
+
+↓
+
+Slice
+
+↓
+
+Read-only View
+
+↓
+
+Writable View
+
+Multiple views may reference the same underlying resource.
+
+Views never own memory.
+
+Binding
+
+Binding associates resources with execution.
+
+Kernel
+
+↓
+
+Binding Table
+
+↓
+
+Resources
+
+Bindings are immutable during execution.
+
+Changing bindings requires a new dispatch.
+
+Memory Types
+
+JGPU defines logical memory classes.
+
+Device Local
+
+Optimized for execution.
+
+CPU visibility is optional.
+
+Host Visible
+
+CPU accessible.
+
+Suitable for staging and uploads.
+
+Shared
+
+Visible to both CPU and Device.
+
+Performance is implementation dependent.
+
+Temporary
+
+Short-lived transient allocations.
+
+Automatically reclaimed.
+
+Persistent
+
+Long-lived application resources.
+
+Explicit destruction required.
+
+Residency
+
+Residency determines whether memory is available for execution.
+
+Residency may be
+
+Resident
+Evicted
+Pending
+Unknown
+
+Applications may request residency.
+
+Backends determine implementation.
+
+Mapping
+
+Applications may request mapped access.
+
+Map()
+
+↓
+
+CPU Pointer
+
+↓
+
+Modify
+
+↓
+
+Flush
+
+↓
+
+Unmap()
+
+Mapping semantics are backend independent.
+
+The runtime performs any required synchronization.
+
+Coherency
+
+Mapped memory may be
+
+Coherent
+Non-coherent
+
+Applications must explicitly flush non-coherent ranges.
+
+This behavior remains consistent across every backend.
+
+Buffer Model
+
+Buffers represent linear memory.
+
+Properties include
+
+Size
+Alignment
+Usage
+Visibility
+Access flags
+
+Buffers contain no intrinsic format.
+
+Images
+
+Images represent multidimensional storage.
+
+Properties include
+
+Width
+Height
+Depth
+Layers
+Mip levels
+Format
+
+Images are immutable after creation except for contents.
+
+Resource States
+
+Every resource exists in a defined state.
+
+Created
+
+↓
+
+Allocated
+
+↓
+
+Bound
+
+↓
+
+Ready
+
+↓
+
+Executing
+
+↓
+
+Available
+
+↓
+
+Destroyed
+
+Transitions occur only through runtime operations.
+
+Resource Hazards
+
+The runtime tracks
+
+Read-after-write
+Write-after-read
+Write-after-write
+
+Hazard resolution is deterministic.
+
+Backends may optimize internally but must preserve behavior.
+
+Aliasing
+
+Multiple resources may reference one allocation.
+
+Aliasing is explicit.
+
+Undefined aliasing behavior is prohibited.
+
+Lifetime
+
+Every resource follows deterministic ownership.
+
+Create
+
+↓
+
+Use
+
+↓
+
+Release
+
+↓
+
+Destroy
+
+Reference counting is permitted.
+
+Garbage collection is optional.
+
+Applications must never depend upon deferred destruction.
+
+Resource Handles
+
+Applications interact with opaque handles.
+
+Handles remain valid until destruction.
+
+Pointer stability is never guaranteed.
+
+Alignment
+
+Every backend reports required alignment.
+
+Applications may query
+
+minimum_buffer_alignment
+
+constant_alignment
+
+texture_alignment
+
+page_size
+
+Applications must not assume fixed values.
+
+Transfers
+
+Transfers occur explicitly.
+
+Supported operations include
+
+Copy
+Upload
+Download
+Resolve
+Fill
+
+Implicit transfers are prohibited unless documented by capability.
+
+Memory Budget
+
+Devices expose runtime statistics.
+
+Example
+
+Total Memory
+
+Available Memory
+
+Resident Memory
+
+Allocated Memory
+
+Evicted Memory
+
+Statistics are advisory.
+
+Applications must not rely on exact values.
+
+Debug Validation
+
+Debug mode validates
+
+Double mapping
+Invalid bindings
+Out-of-bounds views
+Lifetime violations
+Alignment errors
+Resource leaks
+Hazard violations
+
+Validation must not alter execution behavior.
+
+Serialization
+
+Every resource description is serializable.
+
+Serialized descriptions exclude physical memory contents unless explicitly requested.
+
+This enables
+
+Replay
+Offline compilation
+Remote execution
+Deterministic testing
+Backend Responsibilities
+
+Backends are responsible for
+
+Physical allocation
+Residency implementation
+Platform synchronization
+Native resource creation
+Performance optimization
+
+Backends may not alter public memory semantics.
+
+Non-Goals
+
+This RFC does not define
+
+Heap allocation strategies
+Garbage collection algorithms
+Compression
+Virtual memory implementation
+NUMA policies
+Backend optimization techniques
+
+These remain implementation details.
+
+Rationale
+
+The JGPU memory model separates storage, interpretation, and execution into distinct concepts.
+
+An Allocation owns bytes.
+
+A Resource defines what those bytes represent.
+
+A View defines how they are accessed.
+
+A Binding determines how they participate in execution.
+
+This separation allows JGPU to target hardware with vastly different memory architectures while presenting applications with a stable and deterministic programming model.
+
+One architectural suggestion
+
+I'd introduce one concept now that will pay dividends across the entire stack:
+
+Memory Domains
+
+Instead of thinking only in terms of buffers and textures, define domains:
+
+Host Domain
+Shared Domain
+Device Domain
+Transient Domain
+Remote Domain   (future)
+Persistent Domain
+
+Then every resource belongs to a domain rather than directly to a hardware memory type. That gives you room for future RFCs on distributed execution and your "virtual GPU" without changing the API. A remote node simply exposes another memory domain, and the same allocation/binding semantics still apply.
+
+That's the kind of abstraction that tends to age well because it's describing ownership and visibility, not today's hardware. It keeps the contract stable even as the implementations evolve.
