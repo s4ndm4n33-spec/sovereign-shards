@@ -181,3 +181,54 @@ def process_conversations(conversations: list[Conversation]) -> ProcessResult:
     )
 
     return result
+
+
+def result_to_dict(result: ProcessResult) -> dict:
+    """Serialize a ProcessResult to a JSON-safe dict."""
+    return {
+        "providers": result.providers,
+        "session_count": result.session_count,
+        "message_count": result.message_count,
+        "date_range": list(result.date_range),
+        "themes": [list(t) for t in result.themes],
+        "projects": result.projects,
+        "sessions": result.sessions,
+        "jsonl": result.jsonl,
+        "exec_summary": result.exec_summary,
+    }
+
+
+def _sessions_to_conversations(sessions: list[dict]) -> list[Conversation]:
+    """Reconstruct Conversation objects from serialized session dicts."""
+    from datetime import datetime
+    from .models import Message
+
+    convs: list[Conversation] = []
+    for s in sessions:
+        date_str = s.get("date", "unknown")
+        created = None
+        if date_str and date_str != "unknown":
+            try:
+                created = datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                pass
+        msg_count = int(s.get("message_count", 0))
+        messages = [Message(role="user", content=s.get("summary", ""))]
+        if msg_count > 1:
+            messages.append(Message(role="assistant", content=f"({msg_count} messages total)"))
+        convs.append(Conversation(
+            provider=s.get("provider", "unknown"),
+            source_file="",
+            raw_id=str(s.get("session", "")),
+            title=s.get("title", ""),
+            messages=messages,
+            created=created,
+        ))
+    return convs
+
+
+def make_pdf_bytes(result: ProcessResult, title: str) -> bytes:
+    """Generate a PDF from a ProcessResult and return bytes."""
+    from .output import build_pdf
+    conversations = _sessions_to_conversations(result.sessions)
+    return build_pdf(conversations, project_title=title)
