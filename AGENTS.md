@@ -38,7 +38,7 @@ The authoritative execution roadmap is documented in `PLANS.md` (Phase 0 through
 
 
 ### JGPU execution architecture rule
-Runtime and graph execution must depend on backend-neutral contracts, not directly on optimized kernels. The backend registry must preserve slots for ten backend classes (CPU, SIMD CPU, CUDA, Metal, Vulkan, ROCm, WebGPU, Remote, Distributed, Mock), with only real implementations registered. Unsupported backends should fail with structured errors rather than placeholder execution.
+Runtime and graph execution must depend on backend-neutral contracts, not directly on optimized kernels. The backend registry must preserve slots for ten backend classes (CPU, SIMD CPU, CUDA, Metal, Vulkan, ROCm, WebGPU, Remote, Distributed, Mock), with only real implementations registered. Unsupported backends should fail with structured errors rather than placeholder execution. Preserve the RFC-0001 architectural decisions that CPU execution defines correctness, graphs are the scheduling boundary, memory ownership is explicit, and executable backend paths emit telemetry.
 
 ### Engineering style
 - Prefer small, composable modules with explicit boundaries.

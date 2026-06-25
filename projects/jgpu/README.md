@@ -4,6 +4,10 @@ This folder contains the JGPU tensor runtime.
 
 It is intentionally separated from the Sovereign Shards core agent repository layout and is managed as its own runtime project.
 
+## Design record
+
+The first JGPU design record is [`RFC 001`](RFC%20001), which anchors the current architecture around deterministic graph execution, CPU-defined correctness, backend replaceability, explicit memory ownership, and mandatory telemetry. The runtime layers above preserve those decisions by routing all execution through backend-neutral contracts rather than directly coupling graph or async command code to optimized kernels.
+
 ## Execution architecture
 
 JGPU now separates execution into small, backend-neutral layers before any performance work:

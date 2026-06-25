@@ -108,6 +108,7 @@ Rule: never optimize before profiling.
 - Route async runtime commands and graph nodes through backend selection instead of direct kernel calls
 - Return structured errors for unregistered or unsupported backends
 - Emit profiling logs at backend operation boundaries before performance optimization
+- Preserve RFC-0001 decisions: CPU is the correctness specification, graphs remain the execution boundary, memory ownership stays explicit, and telemetry is part of every executable backend path
 
 ### Phase 4 — Virtual VRAM
 - Build allocator with tensor IDs and refcounts
