@@ -1,63 +1,168 @@
 # V.I.C. — Value In Conversation
 
-A bulk AI chat archive tool that processes exported conversation history from multiple AI providers (Gemini, ChatGPT, Claude) into structured project documentation. **Sovereign by design**: no auth, no cloud storage, nothing persisted to a remote server. Process locally, download, done.
+**V.I.C.** is a sovereign, local-first system with two modes:
 
-V.I.C. also operates as an **automated software historian**: it ingests git history, pull requests, issue discussions, design docs, and chat logs into a unified timeline, then generates executive summaries, architectural evolution reports, dependency tracking, decision trees, and "state of the project at point in time" reports. Ask it "Who introduced the registry pattern?" or "When did we first discuss JGPU?" and get cited, searchable historical facts instead of archaeology.
+1. **Chat Archive Processor** — Ingest bulk AI chat exports (ChatGPT, Claude, Gemini), auto-detect providers, merge sessions chronologically, extract decisions/bugs/fixes/open-questions, and export a structured PDF report plus machine-readable `archive.jsonl`.
+2. **Automated Software Historian** — Ingest git repos, markdown ADRs, structured notes, and chat conversations into a local SQLite store, then query a chronological timeline, run semantic search, generate narrative reports, and explore a typed knowledge graph with provenance chains.
 
-## Stack
+Everything runs locally. No cloud, no third-party uploads. Your prompts, code, and decisions stay on your machine.
 
-- **Frontend**: React + Vite + Tailwind (dark theme)
-- **Backend**: Python + Flask
-- **PDF**: reportlab
-- **JSONL**: stdlib `json`
-- **Historian store**: local embedded SQLite (stdlib `sqlite3`) at `~/.vic/historian.db` — sovereign by design, never a cloud database
-- **Semantic search**: FTS5 (BM25) + TF-IDF cosine similarity
-- **Headless crawling**: Selenium + Chromium (for JS-rendered share pages)
+---
 
-## Layout
+## File Tree
 
 ```
 projects/vic/
+├── README.md                          ← this file
 ├── backend/
-│   ├── requirements.txt
-│   ├── vic/
-│   │   ├── __init__.py
-│   │   ├── __main__.py         # entry: python3 -m vic
-│   │   ├── app.py               # Flask app + endpoints
-│   │   ├── detect.py            # provider auto-detection
-│   │   ├── parsers.py           # Gemini / ChatGPT / Claude parsers
-│   │   ├── extract.py           # keyword clustering + extraction
-│   │   ├── pipeline.py          # ingest → parse → extract → preview
-│   │   ├── output.py            # archive.jsonl + PDF report writers
-│   │   └── models.py            # Conversation / Message dataclasses
-│   └── tests/
-│       ├── test_pipeline.py     # end-to-end smoke test (all 3 providers)
-│       └── test_http.py         # HTTP-level smoke test
-└── frontend/
-    ├── package.json
-    ├── vite.config.ts           # dev proxy → 127.0.0.1:8001
-    ├── tailwind.config.js
-    └── src/
-        ├── App.tsx
-        ├── main.tsx
-        ├── index.css
-        ├── lib/{api.ts, types.ts}
-        └── components/
-            ├── Dropzone.tsx
-            ├── ProgressBar.tsx
-            ├── ProviderBadge.tsx
-            ├── ResultsPanel.tsx
-            └── SessionCard.tsx
+│   ├── requirements.txt               ← flask, reportlab, selenium
+│   ├── tests/
+│   │   ├── test_crawler.py            ← crawl fake share pages → /api/crawl
+│   │   ├── test_historian.py          ← V1 historian e2e (git, ADR, notes, chats)
+│   │   ├── test_historian_v2.py       ← V2 e2e (knowledge graph, biography, evolution)
+│   │   ├── test_http.py               ← /api/process, /api/pdf, /api/jsonl
+│   │   └── test_pipeline.py           ← pipeline e2e (all 3 providers → PDF + JSONL)
+│   └── vic/
+│       ├── __init__.py
+│       ├── __main__.py                ← `python -m vic` → starts Flask on :8001
+│       ├── app.py                     ← Flask app, all HTTP endpoints
+│       ├── biography.py               ← concept biography + provenance claims
+│       ├── causal_graph.py            ← deterministic causal reconstruction over arcs
+│       ├── crawler.py                 ← crawl shared chat URLs (ChatGPT, Claude)
+│       ├── detect.py                  ← provider auto-detection (zip/file heuristics)
+│       ├── evolution.py               ← evolution queries (reversed decisions, churn, impact)
+│       ├── extract.py                 ← keyword extraction (decisions, bugs, fixes, themes)
+│       ├── graph_model.py             ← Edge, EdgeType, Claim dataclasses
+│       ├── historian_model.py         ← Event, Decision, Milestone, Person, Narrative, etc.
+│       ├── ingestion_adapter.py       ← raw chat JSON → IR intents
+│       ├── ingest.py                  ← git/markdown/notes/github/chat ingestion → store
+│       ├── knowledge_graph.py         ← graph builder (intent reducer)
+│       ├── models.py                  ← Conversation, Message dataclasses
+│       ├── narrative_engine.py        ← deterministic narrative arcs over timeline
+│       ├── narrator.py                ← narrative report generators (exec summary, arch, etc.)
+│       ├── output.py                  ← JSONL + PDF writers (reportlab)
+│       ├── parsers.py                 ← ChatGPT/Claude/Gemini parsers
+│       ├── pipeline.py                ← ingest → parse → extract → ProcessResult
+│       ├── store.py                   ← SQLite store (schema, upserts, FTS5, TF-IDF, edges)
+│       ├── temporal_query.py           ← temporal DSL over narrative arcs
+│       └── timeline.py                ← timeline builder + Q&A answer_question
+├── frontend/
+│   ├── index.html
+│   ├── package.json                   ← react 18, vite 5, tailwind 3
+│   ├── postcss.config.js
+│   ├── tailwind.config.js             ← ink + vic color ramps, Inter/JetBrains Mono
+│   ├── tsconfig.json
+│   ├── vite.config.ts                 ← proxy /api → 127.0.0.1:8001
+│   └── src/
+│       ├── App.tsx                    ← root: archive view + historian view
+│       ├── index.css                  ← dark grid backdrop, animations
+│       ├── main.tsx
+│       ├── vite-env.d.ts
+│       ├── components/
+│       │   ├── BiographyPanel.tsx     ← concept biography query UI
+│       │   ├── Dropzone.tsx           ← file upload dropzone
+│       │   ├── EvolutionPanel.tsx     ← evolution query runner UI
+│       │   ├── GraphExplorer.tsx      ← knowledge graph node explorer
+│       │   ├── HistorianDashboard.tsx ← store stats + repositories
+│       │   ├── IngestionPanel.tsx     ← git/markdown/notes ingestion UI
+│       │   ├── LinkInput.tsx          ← shared chat URL input
+│       │   ├── NarrativeReader.tsx    ← narrative generation + reader
+│       │   ├── ProgressBar.tsx       ← upload/processing progress
+│       │   ├── ProviderBadge.tsx      ← provider label chip
+│       │   ├── ResultsPanel.tsx       ← archive results + PDF/JSONL download
+│       │   ├── SearchPanel.tsx        ← semantic/fulltext search UI
+│       │   ├── SessionCard.tsx        ← single session summary card
+│       │   └── TimelineView.tsx       ← chronological timeline with links
+│       └── lib/
+│           ├── api.ts                 ← archive API (processFiles, crawlUrls, downloads)
+│           ├── archive-api.ts          ← archive API (duplicate of api.ts)
+│           ├── history-api.ts         ← historian API (stats, timeline, search, ask, narrative)
+│           └── types.ts               ← ProcessResult, SessionEntry, Provider types
+└── schemas/
+    ├── entity.json                    ← entity schema (entity_id, type, surface_forms)
+    ├── event.json                     ← event schema (event_id, action, entities, confidence)
+    ├── intent.json                    ← graph intent schema (ADD_NODE, ADD_EDGE, etc.)
+    └── relation.json                  ← relation schema (from, to, relation, confidence)
 ```
 
-## Run
+---
+
+## Architecture
+
+### Mode 1: Chat Archive Processor
+
+```
+Upload ZIPs/JSON ──► detect.py (provider auto-detect)
+                ──► parsers.py (ChatGPT/Claude/Gemini parsers)
+                ──► models.py (Conversation, Message)
+                ──► extract.py (decisions, bugs, fixes, themes, summaries)
+                ──► output.py (build_jsonl, build_pdf)
+                ──► ProcessResult → frontend ResultsPanel
+```
+
+- **Auto-detect**: ZIP contents and file headers are sniffed to identify ChatGPT (`conversations.json` with `mapping`), Claude (`chat_messages` with `sender`), or Gemini (Takeout `MyActivity.json`).
+- **Extraction**: Keyword-based deterministic extraction — no LLM calls. Decisions, bugs, fixes, architecture notes, and open questions are pulled from message text via pattern matching.
+- **Exports**: PDF (reportlab) with executive summary, key decisions, problems/resolutions, and per-session detail. JSONL with one structured entry per session.
+
+### Mode 2: Automated Software Historian
+
+```
+Ingest sources ──► ingest.py (git, markdown, notes, github, chats)
+               ──► store.py (SQLite: events, decisions, milestones, persons, edges)
+               ──► timeline.py (chronological timeline + links + clusters)
+               ──► narrator.py (narrative reports)
+               ──► knowledge_graph.py (typed edges, provenance)
+               ──► biography.py / evolution.py (concept biographies, evolution queries)
+```
+
+- **Store**: Single SQLite file (`~/.vic/historian.db`). Schema includes repositories, persons, sessions, decisions, artifacts, milestones, events, narratives, edges, FTS5 virtual table, and TF-IDF term index.
+- **Search**: FTS5 full-text + manual TF-IDF cosine similarity for semantic ranking.
+- **Timeline**: Events are linked by shared entities/tags and clustered into temporal groups.
+- **Narratives**: Executive summary, architectural evolution, dependency evolution, state-of-project, decision tree, and custom query narratives — all with cited event IDs.
+- **Knowledge Graph (V2)**: Typed edges (IMPLEMENTS, SUPERSEDES, DISCUSSES, etc.) with confidence and provenance. Concept biographies trace first-mention → current status with evidence chains. Evolution queries detect reversed decisions, architectural churn, discussed-not-implemented, conversations-to-code, decision impact, and top contributors.
+
+---
+
+## Backend API
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/health` | GET | Liveness check |
+| `/api/process` | POST | Upload ZIPs/JSON, process, return preview |
+| `/api/crawl` | POST | Crawl shared chat URL(s), process, return preview |
+| `/api/pdf` | POST | Render PDF from JSON body |
+| `/api/jsonl` | POST | Return archive.jsonl from JSON body |
+| `/api/stats` | GET | Store statistics |
+| `/api/repositories` | GET | List repositories |
+| `/api/persons` | GET | List persons |
+| `/api/events` | GET | List events (filtered) |
+| `/api/decisions` | GET | List decisions |
+| `/api/artifacts` | GET | List artifacts |
+| `/api/milestones` | GET | List milestones |
+| `/api/timeline` | GET | Chronological timeline with links |
+| `/api/search` | GET | Semantic/fulltext search |
+| `/api/ask` | POST | Answer a historical question |
+| `/api/narrative` | POST | Generate a narrative report |
+| `/api/narratives` | GET | List generated narratives |
+| `/api/ingest/git` | POST | Ingest a local git repo |
+| `/api/ingest/markdown` | POST | Ingest a markdown ADR |
+| `/api/ingest/notes` | POST | Ingest structured notes JSON |
+| `/api/ingest/github` | POST | Ingest a GitHub PR/issue export |
+| `/api/graph` | GET | Knowledge graph stats + node exploration |
+| `/api/biography` | POST | Generate a concept biography |
+| `/api/evolution` | POST | Run an evolution query |
+| `/api/provenance` | GET | Evidence chain for an event |
+
+---
+
+## Running
 
 ### Backend
 
 ```bash
 cd projects/vic/backend
 pip install -r requirements.txt
-python3 -m vic            # serves http://127.0.0.1:8001
+python -m vic          # starts Flask on 127.0.0.1:8001
 ```
 
 ### Frontend
@@ -65,121 +170,35 @@ python3 -m vic            # serves http://127.0.0.1:8001
 ```bash
 cd projects/vic/frontend
 npm install
-npm run dev               # serves http://127.0.0.1:5173 (proxies /api → 8001)
+npm run dev            # Vite on :5173, proxies /api → :8001
 ```
-
-Open http://127.0.0.1:5173, drag a Takeout ZIP / ChatGPT `conversations.json` / Claude JSON files onto the dropzone, **or paste a shared chat link** below the dropzone, and download the PDF + JSONL.
 
 ### Tests
 
 ```bash
 cd projects/vic/backend
-python3 tests/test_pipeline.py     # full pipeline across Gemini + ChatGPT + Claude
-python3 tests/test_http.py         # Flask endpoints via test client
-python3 tests/test_crawler.py      # URL crawl + provider auto-detection
-python3 tests/test_historian.py    # historian: git + markdown + notes + chats → timeline + search + narratives
+python tests/test_pipeline.py        # archive pipeline e2e
+python tests/test_http.py            # HTTP endpoints e2e
+python tests/test_crawler.py         # crawler e2e
+python tests/test_historian.py       # V1 historian e2e
+python tests/test_historian_v2.py    # V2 knowledge graph e2e
 ```
 
-## Data model (historian)
+---
 
-Every timestamped fact is an **Event** — the universal timeline atom:
+## Design
 
-| Entity | Purpose |
-| --- | --- |
-| `Event` | A timestamped fact (commit, chat message, decision, PR, release). The timeline atom. |
-| `Person` | Human or bot that authored events (git author, chat participant, commenter) |
-| `Repository` | A git repo or logical project that events belong to |
-| `Session` | A chat conversation (ChatGPT/Claude/Gemini), normalized |
-| `Decision` | An explicit decision with rationale, status, scope, supersession lineage |
-| `Artifact` | A produced artifact (commit, PR, issue, doc, diagram, release) |
-| `Milestone` | A named point in time (release, freeze, demo, EOL) |
-| `Narrative` | A generated human-readable report spanning linked events |
+- **Dark, sovereign aesthetic**: `ink` neutral ramp (950→100) with `vic` accent colors (glow cyan `#22D3EE`, accent teal `#14B8A6`, warn amber, err red).
+- **Typography**: Inter (sans), JetBrains Mono (mono).
+- **Backdrop**: Subtle radial-gradient grid with cyan/teal glow accents.
+- **Micro-interactions**: Dropzone scale-on-drag, card hover lift, fade-in results, shimmer skeletons.
+- **Responsive**: `max-w-6xl` container, grid breakpoints for feature cards and session lists.
 
-## Ingestion sources
+---
 
-| Source | Endpoint | How |
-| --- | --- | --- |
-| Git commits | `POST /api/ingest/git` | Runs `git log` locally against a repo path |
-| Markdown docs | `POST /api/ingest/markdown` | Front-matter + body; auto-detects decision records (ADRs) |
-| Structured notes | `POST /api/ingest/notes` | JSON with decisions, milestones, or generic timeline notes |
-| GitHub exports | `POST /api/ingest/github` | PR/issue JSON exports |
-| Chat uploads | `POST /api/process` | Existing archive flow — also feeds the historian store |
-| Chat URLs | `POST /api/crawl` | Crawls shared chat links |
+## Sovereignty
 
-## Timeline engine
-
-`GET /api/timeline` returns events chronologically with inferred links based on:
-- same actor (who-bridging)
-- shared tags or repository
-- explicit `links` references
-- temporal proximity (events within 24h sharing tags form clusters)
-
-## Semantic search
-
-`GET /api/search?q=…&mode=semantic` — TF-IDF cosine similarity ranking with FTS5 (BM25) fallback. Indexed on event title + body.
-
-## Historical Q&A
-
-`POST /api/ask` — pattern-matches natural-language questions:
-- "Who introduced X?" → finds earliest event matching X, returns actor + date
-- "When did we first discuss X?" → finds first chronological mention
-- "Why did X change between A and B?" → events in date range semantically filtered
-- "Show me what happened between A and B" → timeline window + summary
-
-## Narrative reports
-
-`POST /api/narrative` generates:
-- `executive_summary` — overview of events, decisions, milestones, contributors
-- `arch_evolution` — architecture-related events grouped by month
-- `dep_evolution` — dependency additions, removals, upgrades
-- `state_of_project` — snapshot at a point in time
-- `decision_tree` — decisions with supersession lineage
-- `custom` — narrative from a natural-language query
-
-All narratives cite supporting event IDs so every claim is traceable.
-
-Detection is structural — no manual selection, no content execution:
-
-| Provider | Marker |
-| --- | --- |
-| Gemini | `Takeout/...Gemini/...` ZIP member paths |
-| ChatGPT | `conversations.json` (in ZIP or folder) or `"mapping"` + `"author"` JSON keys |
-| Claude | `"chat_messages"` / `"sender"` JSON keys, or `claude_*` filenames |
-
-## URL crawling
-
-In addition to file uploads, V.I.C. can crawl a **shared chat link**:
-
-- Paste a ChatGPT share (`chatgpt.com/share/…`), Claude share (`claude.ai/share/…`), or Gemini share (`gemini.google.com/share/…`) into the link input.
-- The crawler first tries a lightweight HTTP fetch; if the page is JS-rendered it falls back to a headless Chromium render via Selenium.
-- Provider is auto-detected from the URL host, with content-based refinement for mirrors/aliases.
-- Multiple URLs can be crawled at once; partial failures are surfaced as warnings without blocking the successful ones.
-- Crawled conversations run through the exact same pipeline (extract → cluster → preview → export) as uploaded files.
-
-Crawl endpoint: `POST /api/crawl` with `{"url": "…"}` or `{"urls": ["…", "…"]}`.
-
-## Output
-
-### `archive.jsonl` (one entry per session)
-
-```json
-{"session": 1, "date": "2026-03-14", "provider": "chatgpt", "summary": "...", "decisions": ["..."], "bugs": ["..."], "fixes": ["..."], "open_questions": ["..."]}
-```
-
-### PDF report sections
-
-- Project title and date range
-- Executive summary
-- Key decisions (dated, bulleted)
-- Problems and resolutions
-- Architecture evolution
-- Open questions
-- Recurring themes
-- Per-session cliffnotes (one paragraph each)
-
-## Sovereign guarantees
-
-- No authentication — anyone with network access to localhost can use it
-- No database — nothing is stored after the request returns
-- No cloud storage — uploads land in a per-request temp dir deleted on response
-- No third-party LLM calls — extraction is rule-based and deterministic
+- Chat-archive processing is **stateless** — temp dirs are deleted per request.
+- The historian store uses a **local embedded SQLite file** on the user's machine.
+- No cloud database, no remote telemetry, no third-party API calls.
+- CORS is open (`*`) for localhost dev but the design is local-only.
