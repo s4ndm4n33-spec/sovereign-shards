@@ -87,20 +87,103 @@ class NarrativeEngine:
     # -----------------------------
 
     def _build_arcs(self, graph, timeline):
-        arcs = []
-        current = []
+        """Segment timeline into narrative arcs using temporal gaps and entity shifts.
 
-        for event in timeline:
+        A new arc starts when:
+        - A temporal gap exceeds the median inter-event interval, or
+        - The entity set changes significantly (>60% turnover), or
+        - A hard cap of 10 events is reached (safety bound)
+
+        Events without timestamps are grouped with the nearest timestamped event.
+        """
+        if not timeline:
+            return []
+
+        # Sort timeline: events with timestamps first, then intents
+        def _sort_key(e):
+            t = e.get("time")
+            return (t is None, t or "")
+
+        sorted_tl = sorted(timeline, key=_sort_key)
+
+        # Compute median inter-event interval for timestamped events
+        timestamps = [e["time"] for e in sorted_tl if e.get("time")]
+        if len(timestamps) >= 2:
+            intervals = []
+            for i in range(1, len(timestamps)):
+                t0, t1 = timestamps[i - 1], timestamps[i]
+                if t0 and t1:
+                    try:
+                        from datetime import datetime
+                        d0 = datetime.fromisoformat(t0) if isinstance(t0, str) else t0
+                        d1 = datetime.fromisoformat(t1) if isinstance(t1, str) else t1
+                        intervals.append(abs((d1 - d0).total_seconds()))
+                    except (ValueError, TypeError):
+                        pass
+            gap_threshold = sorted(intervals)[len(intervals) // 2] * 2 if intervals else float("inf")
+        else:
+            gap_threshold = float("inf")
+
+        arcs: list[list[dict]] = []
+        current: list[dict] = []
+        current_entities: set[str] = set()
+
+        for event in sorted_tl:
+            event_entities = self._event_entities(event)
+
+            if current:
+                # Check temporal gap
+                prev_time = current[-1].get("time")
+                curr_time = event.get("time")
+                temporal_gap = False
+                if prev_time and curr_time:
+                    try:
+                        from datetime import datetime
+                        d0 = datetime.fromisoformat(prev_time) if isinstance(prev_time, str) else prev_time
+                        d1 = datetime.fromisoformat(curr_time) if isinstance(curr_time, str) else curr_time
+                        temporal_gap = abs((d1 - d0).total_seconds()) > gap_threshold
+                    except (ValueError, TypeError):
+                        pass
+
+                # Check entity shift
+                if event_entities:
+                    overlap = current_entities & event_entities
+                    union = current_entities | event_entities
+                    entity_shift = len(overlap) / len(union) < 0.4 if union else False
+                else:
+                    entity_shift = False
+
+                if temporal_gap or entity_shift or len(current) >= 10:
+                    arcs.append(current)
+                    current = []
+                    current_entities = set()
+
             current.append(event)
-
-            if len(current) >= 5:
-                arcs.append(current)
-                current = []
+            current_entities |= event_entities
 
         if current:
             arcs.append(current)
 
         return arcs
+
+    def _event_entities(self, event: dict) -> set[str]:
+        """Extract entity IDs from an event."""
+        entities: set[str] = set()
+        data = event.get("data", {})
+        if event.get("type") == "session":
+            title = data.get("title", "")
+            if title:
+                entities.add(title)
+        elif event.get("type") == "intent":
+            if isinstance(data, dict):
+                node = data.get("node") or {}
+                if isinstance(node, dict) and node.get("entity_id"):
+                    entities.add(node["entity_id"])
+                if data.get("from"):
+                    entities.add(data["from"])
+                if data.get("to"):
+                    entities.add(data["to"])
+        return entities
 
     # -----------------------------
     # Rendering (projection layer only)

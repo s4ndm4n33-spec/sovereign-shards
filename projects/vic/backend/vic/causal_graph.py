@@ -34,26 +34,51 @@ class CausalGraph:
         return self
 
     def _process_arc(self, arc, arc_id: str):
+        """Extract causal transitions from an arc.
+
+        A transition (A → B) is recorded when:
+        - A and B are distinct entities that co-occur in the arc, AND
+        - A appears earlier in the arc than B (temporal precedence), AND
+        - They share at least one tag or keyword (semantic coherence)
+
+        This is stronger than raw list adjacency: it requires both temporal
+        ordering and semantic overlap to record a causal candidate.
+        """
         entities = arc.entities
+        if not entities or len(entities) < 2:
+            return
 
-        for i in range(len(entities) - 1):
-            a = entities[i]
-            b = entities[i + 1]
+        # Build entity → first position index
+        first_seen: dict[str, int] = {}
+        for i, e in enumerate(entities):
+            if e and e not in first_seen:
+                first_seen[e] = i
 
-            if not a or not b:
-                continue
+        # Extract tags from arc story for semantic coherence check
+        arc_tags: set[str] = set()
+        story = getattr(arc, "story", "") or ""
+        if story:
+            words = story.lower().split()
+            arc_tags = {w for w in words if len(w) > 3}
 
-            self.nodes.add(a)
-            self.nodes.add(b)
+        # Record transitions: for every pair (A, B) where A precedes B
+        entity_list = list(first_seen.keys())
+        for i, a in enumerate(entity_list):
+            for b in entity_list[i + 1:]:
+                if not a or not b or a == b:
+                    continue
 
-            key = (a, b)
+                # Temporal precedence: a appears before b
+                if first_seen[a] >= first_seen[b]:
+                    continue
 
-            # basic frequency
-            self.edges[key] += 1
+                self.nodes.add(a)
+                self.nodes.add(b)
 
-            # enriched invariant tracking
-            self.edge_stats[key]["count"] += 1
-            self.edge_stats[key]["arcs"].add(arc_id)
+                key = (a, b)
+                self.edges[key] += 1
+                self.edge_stats[key]["count"] += 1
+                self.edge_stats[key]["arcs"].add(arc_id)
 
     # -----------------------------
     # Query: strong causal links

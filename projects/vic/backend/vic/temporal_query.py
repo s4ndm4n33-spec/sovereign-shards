@@ -34,23 +34,41 @@ class TemporalQueryEngine:
         return trace
 
     def reconstruct_at_arc(self, arc_id: str) -> Dict[str, Any]:
+        """Reconstruct the graph state as of a given arc.
+
+        Replays all provenance entries from arcs up to and including arc_id,
+        collecting ADD_NODE and ADD_EDGE operations into a snapshot.
+        """
         arcs = self.narrative.list_arcs()
 
-        snapshot_nodes = {}
-        snapshot_edges = []
+        snapshot_nodes: dict[str, dict] = {}
+        snapshot_edges: list[dict] = []
 
         for arc in arcs:
             if arc.arc_id > arc_id:
                 break
 
             for p in arc.provenance:
-                if "ADD_NODE" in p:
+                if not isinstance(p, dict):
                     continue
+                op = p.get("op")
+                if op == "ADD_NODE":
+                    node = p.get("node", {})
+                    node_id = node.get("entity_id") or node.get("id")
+                    if node_id:
+                        snapshot_nodes[node_id] = node
+                elif op == "ADD_EDGE":
+                    snapshot_edges.append({
+                        "from": p.get("from"),
+                        "to": p.get("to"),
+                        "relation": p.get("relation"),
+                        "provenance": p.get("provenance", {}),
+                    })
 
         return {
             "arc_id": arc_id,
             "nodes": snapshot_nodes,
-            "edges": snapshot_edges
+            "edges": snapshot_edges,
         }
 
     def causal_chain(self, entity: str) -> List[str]:
