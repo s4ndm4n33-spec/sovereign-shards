@@ -2497,7 +2497,136 @@ Future agents should continue from this baseline and avoid weakening the guardra
 
 ---
 
-**Last updated:** 2026-06-23 (Session 36)
+**Last updated:** 2026-06-25 (Session 37)
+
+---
+
+## SESSION 37 — VIC V2 Knowledge Graph Recovery & Foundation Restore (2026-06-25)
+
+**Contributor:** J — self-directed agent recovery pass
+**Scope:** `projects/vic/` — full V1/V2 backend restoration, KnowledgeGraph rebuild, test suite recovery
+
+### Context
+
+Session 36 introduced the VIC temporal reconstruction layer (deterministic IR, narrative engine, causal graph). However, the VIC backend was in a non-functional state — the Flask app could not start, and all 5 test files failed. The root cause was a mid-transition state between V1 (archive processor) and V2 (knowledge graph + provenance) where interfaces were removed before replacements were complete.
+
+This session restored the entire VIC stack from non-functional to fully passing.
+
+### What Was Fixed
+
+#### 1. V1 Pipeline — Missing modules restored
+
+**`vic/deterministic_agent.py` (NEW)**
+- Deterministic translation from session dicts to graph intent IR
+- `DeterministicAgent.process(raw)` → `{"intents": [...]}`
+- Extracts decisions, bugs, fixes, architecture notes from session text
+- Produces `ADD_NODE` + `ADD_EDGE` intents with provenance
+
+**`vic/pipeline.py` — `result_to_dict` + `make_pdf_bytes` added**
+- `result_to_dict(ProcessResult)` → JSON-safe dict for API responses
+- `make_pdf_bytes(ProcessResult, title)` → PDF bytes via `build_pdf`
+- Bridges `ProcessResult.sessions` (dicts) back to `Conversation` objects for reportlab
+
+**V1 test results (all pass):**
+- `test_pipeline.py` — ChatGPT/Claude/Gemini → PDF + JSONL ✅
+- `test_http.py` — `/api/process`, `/api/pdf`, `/api/jsonl` ✅
+- `test_crawler.py` — ChatGPT/Claude share-page crawl → `/api/crawl` ✅
+- `test_historian.py` — Git + ADR + notes + chats → timeline + search + narratives ✅
+
+#### 2. V2 Knowledge Graph — Full rewrite
+
+**`vic/knowledge_graph.py` — REWRITTEN**
+
+Previous implementation was a stripped-down "intent reducer" with only `apply()`, `get_node()`, `get_edges()`. No typed edges, no inference, no query API.
+
+New implementation:
+- Constructor: `KnowledgeGraph(store, repository_id)` — loads all events from SQLite store
+- Typed edges: `Edge` objects from `graph_model.py` with `.confidence`, `.relationship_type`, `.rationale`, `.provenance`
+- Five deterministic inference rules:
+  1. **IMPLEMENTS** — commits whose keywords overlap with decision keywords
+  2. **DISCUSSES** — chat sessions whose keywords overlap with decision keywords
+  3. **SUPERSEDES** — decisions with explicit `superseded_by` OR implicit by scope + status
+  4. **PRECEDES** — events with shared tags, ordered chronologically
+  5. **CONTAINS** — sessions containing messages via matching `source_ref`
+- Query API: `neighbors(node_id, edge_type=None)`, `incoming(node_id, edge_type=None)`, `reachable(node_id, max_depth, follow_types)`
+- Stats: `edge_type_counts()`, `to_dict()`
+- Internal maps: `_adjacency`, `_reverse` for O(1) edge lookups
+- Legacy API: `apply(intents)`, `get_node()`, `get_edges()` preserved for ingestion_adapter compatibility
+
+**`vic/knowledge_graph.py` — `_keywords()` function added**
+- Exported for `evolution.py` and other modules that need keyword extraction
+- Deterministic tokenization with stopword filtering
+
+#### 3. V2 dependent modules — verified working
+
+**`biography.py`** — concept biography generation
+- Uses `kg.store`, `kg.neighbors()`, `kg.incoming()` — all now implemented
+- Traces first-mention → current status with evidence chains
+- No code changes required — interface now matches implementation
+
+**`evolution.py`** — evolution queries
+- Uses `kg.store`, `kg.nodes`, `kg.incoming()`, `kg.neighbors()`, `kg.reachable()`, `kg._reverse`, `kg._adjacency`, `kg.edges` — all now implemented
+- Fixed `_keywords` import (now available from `knowledge_graph`)
+- Seven query types: reversed decisions, architectural churn, discussed-not-implemented, conversations-to-code, decision impact, top contributors
+- No code changes required — interface now matches implementation
+
+**`app.py` graph endpoints — all verified**
+- `/api/graph` — node stats + edge counts + edge type distribution ✅
+- `/api/biography` — concept biography with provenance ✅
+- `/api/evolution` — evolution query dispatch ✅
+- `/api/provenance` — evidence chain for single event ✅
+
+**V2 test result:**
+- `test_historian_v2.py` — knowledge graph + biography + evolution + provenance ✅
+
+#### 4. Higher-level reasoning improvements
+
+**`narrative_engine.py` — arc segmentation**
+- Replaced fixed 5-event chunks with temporal-gap + entity-shift segmentation
+- New arc starts when: temporal gap > 2x median interval OR entity overlap < 40%
+- Hard cap: 10 events per arc (safety bound)
+- Events without timestamps grouped with nearest timestamped event
+
+**`temporal_query.py` — `reconstruct_at_arc` dead code fixed**
+- Previous implementation had `continue` that skipped all processing — always returned empty
+- Now replays ADD_NODE/ADD_EDGE provenance entries from arcs up to arc_id
+- Builds real `snapshot_nodes` and `snapshot_edges`
+
+**`causal_graph.py` — causal signal strengthened**
+- Replaced naive list-adjacency transitions with temporal-precedence + semantic-coherence
+- Transition (A→B) only recorded when: A appears before B in arc AND they share semantic context
+- Uses `first_seen` position mapping and `arc_tags` overlap check
+
+### Validation
+
+All 5 VIC backend tests pass:
+```
+test_pipeline.py     ✅ (all 3 providers → PDF + JSONL)
+test_http.py         ✅ (process/pdf/jsonl endpoints)
+test_crawler.py      ✅ (crawl share URLs)
+test_historian.py    ✅ (V1: git + ADR + notes + timeline + search + narratives)
+test_historian_v2.py ✅ (V2: graph + biography + evolution + provenance)
+```
+
+### File State
+
+| File | Action | Notes |
+|------|--------|-------|
+| `vic/deterministic_agent.py` | NEW | Deterministic IR agent |
+| `vic/knowledge_graph.py` | REWRITTEN | Typed graph with 5 inference rules |
+| `vic/pipeline.py` | UPDATED | Added `result_to_dict` + `make_pdf_bytes` |
+| `vic/narrative_engine.py` | UPDATED | Temporal-gap + entity-shift segmentation |
+| `vic/temporal_query.py` | UPDATED | Fixed `reconstruct_at_arc` dead code |
+| `vic/causal_graph.py` | UPDATED | Temporal-precedence + semantic-coherence causal signal |
+| `vic/biography.py` | VERIFIED | No changes needed — interface now matches |
+| `vic/evolution.py` | VERIFIED | No changes needed — interface now matches |
+| `vic/app.py` | VERIFIED | All graph/biography/evolution/provenance endpoints working |
+
+### Design Note
+
+This session demonstrates the architectural priority stated in the AGENTS.md contract: "Runtime and graph execution must depend on backend-neutral contracts, not directly on optimized kernels." The VIC graph was broken because the contract (`KnowledgeGraph` API) drifted away from the implementation. Restoring the contract first — typed `Edge` objects, `neighbors()`, `incoming()`, `to_dict()` — made all downstream modules (biography, evolution, app endpoints) work without individual patching.
+
+The recovery also follows the PLANS.md principle: "Never optimize before profiling." The narrative engine and causal graph improvements were applied AFTER the foundation was stable, not before.
 
 ---
 

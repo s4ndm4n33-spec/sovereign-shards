@@ -40,6 +40,7 @@ This repository is organized around the Sovereign Shards core agent while keepin
 - `projects/ide/`: VS Code and IDE integration components.
 - `projects/architect/`: architecture research scaffolding and planning helpers.
 - `projects/fastapi_app/`: FastAPI application demo.
+- `projects/vic/`: V.I.C. (Value In Conversation) — sovereign chat archive processor and automated software historian. Local SQLite + Flask backend, React + Tailwind frontend. Auto-detects ChatGPT/Claude/Gemini exports, extracts decisions/bugs/fixes, builds typed knowledge graphs with provenance chains.
 - `projects/integrations/slack/`: Slack app manifest and integration metadata.
 - `examples/`: sample apps, demos, and one-off prototypes.
 - `scratch/`: temporary files and scratch notes.
